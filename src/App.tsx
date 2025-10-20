@@ -2,15 +2,41 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
 import Orders from "./pages/Orders";
+import Auth from "./pages/Auth";
+import BusinessOnboarding from "./pages/BusinessOnboarding";
+import BusinessSettings from "./pages/BusinessSettings";
 import NotFound from "./pages/NotFound";
-import { Navigation } from "./components/Navigation";
+import { AuthProvider } from "./contexts/AuthContext";
+import { BusinessProvider } from "./contexts/BusinessContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Header } from "./components/layout/Header";
+import { TabNavigation } from "./components/layout/TabNavigation";
+import { useAuth } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
+
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="min-h-screen flex flex-col w-full">
+      <Header />
+      <TabNavigation />
+      <main className="flex-1">
+        {children}
+      </main>
+    </div>
+  );
+};
+
+const AuthRedirect = () => {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/" replace />;
+  return <Auth />;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -18,15 +44,56 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/orders" element={<Orders />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <BusinessProvider>
+            <Routes>
+              <Route path="/auth" element={<AuthRedirect />} />
+              <Route path="/onboarding" element={<BusinessOnboarding />} />
+              
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Dashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/inventory" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Inventory />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/products" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Products />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/orders" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Orders />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/business-settings" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <BusinessSettings />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BusinessProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
