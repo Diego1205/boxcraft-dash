@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Product } from "@/pages/Products";
 import { ProductComponentsSelector } from "./ProductComponentsSelector";
+import { z } from "zod";
+
+const productSchema = z.object({
+  name: z.string().trim().min(1, "Product name is required").max(200, "Product name must be less than 200 characters"),
+  quantityAvailable: z.number().int().min(0, "Quantity must be 0 or greater").max(100000, "Quantity must be less than 100000"),
+  profitMargin: z.number().min(0, "Profit margin must be 0 or greater").max(1000, "Profit margin must be less than 1000%"),
+});
 
 interface ProductDialogProps {
   open: boolean;
@@ -86,12 +93,25 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Validate input data
+      const validationResult = productSchema.safeParse({
+        name: name,
+        quantityAvailable: parseInt(quantityAvailable) || 0,
+        profitMargin: parseFloat(profitMargin) || 0,
+      });
+
+      if (!validationResult.success) {
+        const errorMessage = validationResult.error.errors[0]?.message || "Invalid input";
+        throw new Error(errorMessage);
+      }
+
+      const validated = validationResult.data;
       const salePrice = calculateSalePrice();
       
       const productData = {
-        name,
-        quantity_available: parseInt(quantityAvailable) || 0,
-        profit_margin: parseFloat(profitMargin) || 0,
+        name: validated.name,
+        quantity_available: validated.quantityAvailable,
+        profit_margin: validated.profitMargin,
         sale_price: salePrice,
       };
 

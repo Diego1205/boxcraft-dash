@@ -8,6 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Package } from 'lucide-react';
+import { z } from 'zod';
+
+const signInSchema = z.object({
+  email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters").max(100, "Password must be less than 100 characters"),
+});
+
+const signUpSchema = signInSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100, "Full name must be less than 100 characters"),
+});
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -19,8 +29,16 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input data
+    const validationResult = signInSchema.safeParse({ email, password });
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0]?.message || "Invalid input");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(validationResult.data.email, validationResult.data.password);
     setLoading(false);
 
     if (error) {
@@ -33,8 +51,16 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate input data
+    const validationResult = signUpSchema.safeParse({ email, password, fullName });
+    if (!validationResult.success) {
+      toast.error(validationResult.error.errors[0]?.message || "Invalid input");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    const { error } = await signUp(validationResult.data.email, validationResult.data.password, validationResult.data.fullName);
     setLoading(false);
 
     if (error) {

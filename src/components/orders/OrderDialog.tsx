@@ -19,6 +19,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const orderSchema = z.object({
+  clientName: z.string().trim().min(1, "Client name is required").max(100, "Client name must be less than 100 characters"),
+  clientContact: z.string().trim().max(255, "Contact info must be less than 255 characters").optional(),
+  quantity: z.number().int().positive("Quantity must be positive").max(10000, "Quantity must be less than 10000"),
+  deliveryInfo: z.string().trim().max(1000, "Delivery info must be less than 1000 characters").optional(),
+  paymentMethod: z.string().trim().max(100, "Payment method must be less than 100 characters").optional(),
+});
 
 interface OrderDialogProps {
   open: boolean;
@@ -51,16 +60,32 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
 
       const orderQuantity = parseInt(quantity) || 1;
 
+      // Validate input data
+      const validationResult = orderSchema.safeParse({
+        clientName: clientName,
+        clientContact: clientContact || undefined,
+        quantity: orderQuantity,
+        deliveryInfo: deliveryInfo || undefined,
+        paymentMethod: paymentMethod || undefined,
+      });
+
+      if (!validationResult.success) {
+        const errorMessage = validationResult.error.errors[0]?.message || "Invalid input";
+        throw new Error(errorMessage);
+      }
+
+      const validated = validationResult.data;
+
       // Create the order
       const { error: orderError } = await supabase.from("orders").insert({
-        client_name: clientName,
-        client_contact: clientContact || null,
+        client_name: validated.clientName,
+        client_contact: validated.clientContact || null,
         product_id: productId,
         product_name: selectedProduct.name,
-        quantity: orderQuantity,
+        quantity: validated.quantity,
         sale_price: selectedProduct.sale_price || 0,
-        delivery_info: deliveryInfo || null,
-        payment_method: paymentMethod || null,
+        delivery_info: validated.deliveryInfo || null,
+        payment_method: validated.paymentMethod || null,
         status: "New Inquiry",
       });
 
