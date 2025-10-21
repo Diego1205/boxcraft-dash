@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { InventoryItem } from "@/pages/Inventory";
 import { Upload } from "lucide-react";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 interface InventoryDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface InventoryDialogProps {
 }
 
 export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDialogProps) => {
+  const { business, formatCurrency } = useBusiness();
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -84,6 +86,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
         unit_cost: unitCost ? parseFloat(unitCost) : null,
         total_cost: totalCost ? parseFloat(totalCost) : null,
         image_url: imageUrl,
+        business_id: business?.id,
       };
 
       if (editingItem) {
@@ -159,7 +162,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unitCost">Unit Cost ($)</Label>
+            <Label htmlFor="unitCost">Unit Cost ({business?.currency_symbol || '$'})</Label>
             <Input
               id="unitCost"
               type="number"
@@ -170,7 +173,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="totalCost">Total Cost ($)</Label>
+            <Label htmlFor="totalCost">Total Cost ({business?.currency_symbol || '$'})</Label>
             <Input
               id="totalCost"
               type="number"

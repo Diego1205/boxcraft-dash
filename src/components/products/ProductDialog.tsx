@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Product } from "@/pages/Products";
 import { ProductComponentsSelector } from "./ProductComponentsSelector";
 import { z } from "zod";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const productSchema = z.object({
   name: z.string().trim().min(1, "Product name is required").max(200, "Product name must be less than 200 characters"),
@@ -28,6 +29,7 @@ interface ProductDialogProps {
 }
 
 export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDialogProps) => {
+  const { business, formatCurrency } = useBusiness();
   const [name, setName] = useState("");
   const [quantityAvailable, setQuantityAvailable] = useState("");
   const [profitMargin, setProfitMargin] = useState("20");
@@ -113,6 +115,7 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
         quantity_available: validated.quantityAvailable,
         profit_margin: validated.profitMargin,
         sale_price: salePrice,
+        business_id: business?.id,
       };
 
       let productId = editingProduct?.id;
@@ -143,6 +146,7 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
           product_id: productId,
           inventory_item_id: c.item_id,
           quantity: c.quantity,
+          business_id: business?.id,
         }));
 
         const { error } = await supabase
@@ -208,11 +212,11 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
           <div className="bg-muted p-4 rounded-lg space-y-2">
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Total Cost:</span>
-              <span className="font-bold text-foreground">${calculateTotalCost().toFixed(2)}</span>
+              <span className="font-bold text-foreground">{formatCurrency(calculateTotalCost())}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Sale Price:</span>
-              <span className="font-bold text-foreground">${calculateSalePrice().toFixed(2)}</span>
+              <span className="font-bold text-foreground">{formatCurrency(calculateSalePrice())}</span>
             </div>
           </div>
         </div>
