@@ -40,7 +40,8 @@ const BusinessOnboarding = () => {
       if (error) throw error;
 
       toast.success('Business created successfully!');
-      navigate('/');
+      // Force full page reload to ensure BusinessContext loads new data
+      window.location.href = '/';
     } catch (error: any) {
       toast.error(error.message);
     } finally {
