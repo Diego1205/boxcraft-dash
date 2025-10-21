@@ -31,48 +31,13 @@ const BusinessOnboarding = () => {
 
     setLoading(true);
     try {
-      // Create business
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .insert({
-          name: businessName,
-          currency,
-          currency_symbol: getCurrencySymbol(currency),
-        })
-        .select()
-        .single();
+      const { data: businessId, error } = await supabase.rpc('onboard_business', {
+        _name: businessName,
+        _currency: currency,
+        _currency_symbol: getCurrencySymbol(currency),
+      });
 
-      if (businessError) throw businessError;
-
-      // Update profile with business_id
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ business_id: business.id })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
-      // Create owner role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          role: 'owner',
-          business_id: business.id,
-        });
-
-      if (roleError) throw roleError;
-
-      // Create default budget settings
-      const { error: budgetError } = await supabase
-        .from('budget_settings')
-        .insert({
-          business_id: business.id,
-          total_budget: 0,
-          amount_spent: 0,
-        });
-
-      if (budgetError) throw budgetError;
+      if (error) throw error;
 
       toast.success('Business created successfully!');
       navigate('/');
@@ -106,7 +71,7 @@ const BusinessOnboarding = () => {
             
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={(value: any) => setCurrency(value)}>
+              <Select value={currency} onValueChange={(value: 'USD' | 'CAD' | 'PEN') => setCurrency(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -394,6 +394,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      onboard_business: {
+        Args: {
+          _currency: Database["public"]["Enums"]["currency_type"]
+          _currency_symbol: string
+          _name: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "owner" | "admin" | "driver"
