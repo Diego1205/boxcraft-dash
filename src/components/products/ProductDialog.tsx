@@ -108,6 +108,19 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
       }
 
       const validated = validationResult.data;
+
+      // Validate inventory availability for each component
+      for (const component of selectedComponents) {
+        const item = inventoryItems.find(i => i.id === component.item_id);
+        if (!item) {
+          throw new Error(`Inventory item not found`);
+        }
+        const requiredQuantity = component.quantity * validated.quantityAvailable;
+        if (requiredQuantity > item.quantity) {
+          throw new Error(`Not enough inventory for ${item.name}. Available: ${item.quantity}, Required: ${requiredQuantity}`);
+        }
+      }
+
       const salePrice = calculateSalePrice();
       
       const productData = {
@@ -161,8 +174,8 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
       toast.success(editingProduct ? "Product updated" : "Product created");
       onOpenChange(false);
     },
-    onError: () => {
-      toast.error("Failed to save product");
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to save product");
     },
   });
 

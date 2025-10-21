@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const orderSchema = z.object({
   clientName: z.string().trim().min(1, "Client name is required").max(100, "Client name must be less than 100 characters"),
@@ -35,6 +36,7 @@ interface OrderDialogProps {
 }
 
 export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
+  const { business } = useBusiness();
   const [clientName, setClientName] = useState("");
   const [clientContact, setClientContact] = useState("");
   const [productId, setProductId] = useState("");
@@ -59,6 +61,11 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
       if (!selectedProduct) throw new Error("No product selected");
 
       const orderQuantity = parseInt(quantity) || 1;
+
+      // Check if product has enough quantity available
+      if (orderQuantity > selectedProduct.quantity_available) {
+        throw new Error(`Not enough products available. Available: ${selectedProduct.quantity_available}, Requested: ${orderQuantity}`);
+      }
 
       // Validate input data
       const validationResult = orderSchema.safeParse({
@@ -87,6 +94,7 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
         delivery_info: validated.deliveryInfo || null,
         payment_method: validated.paymentMethod || null,
         status: "New Inquiry",
+        business_id: business?.id,
       });
 
       if (orderError) throw orderError;
@@ -99,7 +107,7 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
 
       if (componentsError) throw componentsError;
 
-      // Update inventory for each component
+      // Check and update inventory for each component
       if (components && components.length > 0) {
         for (const component of components) {
           const usedQuantity = component.quantity * orderQuantity;
@@ -111,6 +119,11 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
             .single();
 
           if (fetchError) throw fetchError;
+
+          // Check if enough inventory is available
+          if (usedQuantity > currentItem.quantity) {
+            throw new Error(`Not enough inventory available for this order`);
+          }
 
           const newQuantity = currentItem.quantity - usedQuantity;
 
@@ -140,9 +153,9 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
       onOpenChange(false);
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error(error);
-      toast.error("Failed to create order");
+      toast.error(error.message || "Failed to create order");
     },
   });
 

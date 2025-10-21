@@ -48,17 +48,33 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
     }
   }, [editingItem, open]);
 
-  useEffect(() => {
-    const qty = parseFloat(quantity) || 0;
+  // Auto-calculate based on which field was just changed
+  const handleQuantityChange = (value: string) => {
+    setQuantity(value);
+    const qty = parseFloat(value) || 0;
     const unit = parseFloat(unitCost) || 0;
-    const total = parseFloat(totalCost) || 0;
-
-    if (unitCost && quantity && !totalCost) {
+    if (qty && unit) {
       setTotalCost((qty * unit).toFixed(2));
-    } else if (totalCost && quantity && !unitCost) {
-      setUnitCost(qty > 0 ? (total / qty).toFixed(2) : "0");
     }
-  }, [quantity, unitCost, totalCost]);
+  };
+
+  const handleUnitCostChange = (value: string) => {
+    setUnitCost(value);
+    const qty = parseFloat(quantity) || 0;
+    const unit = parseFloat(value) || 0;
+    if (qty && unit) {
+      setTotalCost((qty * unit).toFixed(2));
+    }
+  };
+
+  const handleTotalCostChange = (value: string) => {
+    setTotalCost(value);
+    const qty = parseFloat(quantity) || 0;
+    const total = parseFloat(value) || 0;
+    if (qty > 0 && total) {
+      setUnitCost((total / qty).toFixed(2));
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -157,7 +173,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
               id="quantity"
               type="number"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={(e) => handleQuantityChange(e.target.value)}
               placeholder="0"
             />
           </div>
@@ -168,7 +184,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
               type="number"
               step="0.01"
               value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
+              onChange={(e) => handleUnitCostChange(e.target.value)}
               placeholder="0.00"
             />
           </div>
@@ -179,7 +195,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
               type="number"
               step="0.01"
               value={totalCost}
-              onChange={(e) => setTotalCost(e.target.value)}
+              onChange={(e) => handleTotalCostChange(e.target.value)}
               placeholder="0.00"
             />
           </div>

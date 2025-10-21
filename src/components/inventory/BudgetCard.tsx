@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Edit } from "lucide-react";
 import { toast } from "sonner";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export const BudgetCard = () => {
+  const { business, formatCurrency } = useBusiness();
   const [isEditing, setIsEditing] = useState(false);
   const [totalBudget, setTotalBudget] = useState("");
-  const [amountSpent, setAmountSpent] = useState("");
   const queryClient = useQueryClient();
 
   const { data: budget } = useQuery({
@@ -27,13 +28,41 @@ export const BudgetCard = () => {
     },
   });
 
+  // Calculate amount spent from inventory total costs
+  const { data: inventoryItems = [] } = useQuery({
+    queryKey: ["inventory-items"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("total_cost");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const calculatedAmountSpent = inventoryItems.reduce((sum, item) => {
+    return sum + (item.total_cost || 0);
+  }, 0);
+
+  // Update amount_spent in database when inventory changes
+  useEffect(() => {
+    if (budget && calculatedAmountSpent !== budget.amount_spent) {
+      supabase
+        .from("budget_settings")
+        .update({ amount_spent: calculatedAmountSpent })
+        .eq("id", budget.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["budget-settings"] });
+        });
+    }
+  }, [calculatedAmountSpent, budget, queryClient]);
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
         .from("budget_settings")
         .update({
           total_budget: parseFloat(totalBudget),
-          amount_spent: parseFloat(amountSpent),
         })
         .eq("id", budget?.id);
       
@@ -46,12 +75,11 @@ export const BudgetCard = () => {
     },
   });
 
-  const remaining = (budget?.total_budget || 0) - (budget?.amount_spent || 0);
+  const remaining = (budget?.total_budget || 0) - calculatedAmountSpent;
   const isOverBudget = remaining < 0;
 
   const handleEdit = () => {
     setTotalBudget(budget?.total_budget?.toString() || "0");
-    setAmountSpent(budget?.amount_spent?.toString() || "0");
     setIsEditing(true);
   };
 
@@ -69,27 +97,15 @@ export const BudgetCard = () => {
 
       {isEditing ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="totalBudget">Total Budget ($)</Label>
-              <Input
-                id="totalBudget"
-                type="number"
-                step="0.01"
-                value={totalBudget}
-                onChange={(e) => setTotalBudget(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="amountSpent">Amount Spent ($)</Label>
-              <Input
-                id="amountSpent"
-                type="number"
-                step="0.01"
-                value={amountSpent}
-                onChange={(e) => setAmountSpent(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="totalBudget">Total Budget ({business?.currency_symbol || '$'})</Label>
+            <Input
+              id="totalBudget"
+              type="number"
+              step="0.01"
+              value={totalBudget}
+              onChange={(e) => setTotalBudget(e.target.value)}
+            />
           </div>
           <div className="flex gap-2">
             <Button onClick={() => updateMutation.mutate()}>Save</Button>
@@ -101,19 +117,19 @@ export const BudgetCard = () => {
           <div>
             <p className="text-sm text-muted-foreground mb-1">Total Budget</p>
             <p className="text-2xl font-bold text-foreground">
-              ${budget?.total_budget?.toFixed(2) || "0.00"}
+              {formatCurrency(budget?.total_budget || 0)}
             </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-1">Amount Spent</p>
             <p className="text-2xl font-bold text-foreground">
-              ${budget?.amount_spent?.toFixed(2) || "0.00"}
+              {formatCurrency(calculatedAmountSpent)}
             </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-1">Remaining</p>
             <p className={`text-2xl font-bold ${isOverBudget ? "text-destructive" : "text-foreground"}`}>
-              ${remaining.toFixed(2)}
+              {formatCurrency(remaining)}
             </p>
           </div>
         </div>
