@@ -10,6 +10,7 @@ import Orders from "./pages/Orders";
 import Auth from "./pages/Auth";
 import BusinessOnboarding from "./pages/BusinessOnboarding";
 import BusinessSettings from "./pages/BusinessSettings";
+import DeliveryConfirmation from "./pages/DeliveryConfirmation";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessProvider } from "./contexts/BusinessContext";
@@ -49,6 +50,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<AuthRedirect />} />
               <Route path="/onboarding" element={<BusinessOnboarding />} />
+              <Route path="/delivery/:token" element={<DeliveryConfirmation />} />
               
               <Route path="/" element={
                 <ProtectedRoute>
