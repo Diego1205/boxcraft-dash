@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import BusinessOnboarding from "./pages/BusinessOnboarding";
 import BusinessSettings from "./pages/BusinessSettings";
 import DeliveryConfirmation from "./pages/DeliveryConfirmation";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessProvider } from "./contexts/BusinessContext";
@@ -88,6 +89,14 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <BusinessSettings />
+                  </AppLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/team" element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <UserManagement />
                   </AppLayout>
                 </ProtectedRoute>
               } />

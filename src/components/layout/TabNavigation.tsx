@@ -1,15 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Package, Box } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Box, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useBusiness } from '@/contexts/BusinessContext';
 
 export const TabNavigation = () => {
   const location = useLocation();
+  const { isOwner, isAdmin } = useBusiness();
 
   const tabs = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/orders', label: 'Orders', icon: ShoppingCart },
     { to: '/inventory', label: 'Inventory', icon: Package },
     { to: '/products', label: 'Products', icon: Box },
+    ...(isOwner || isAdmin ? [{ to: '/team', label: 'Team', icon: Users }] : []),
   ];
 
   return (

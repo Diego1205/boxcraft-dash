@@ -1,7 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import { InventoryItem } from "@/pages/Inventory";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 interface InventoryListProps {
   items: InventoryItem[];
@@ -11,6 +15,36 @@ interface InventoryListProps {
 }
 
 export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryListProps) => {
+  const { formatCurrency } = useBusiness();
+
+  // Query to get usage of each inventory item in products
+  const { data: usageData = {} } = useQuery({
+    queryKey: ["inventory-usage"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_components")
+        .select(`
+          inventory_item_id,
+          quantity,
+          products!inner (
+            quantity_available
+          )
+        `);
+
+      if (error) throw error;
+
+      // Calculate total used quantity per inventory item
+      const usage: Record<string, number> = {};
+      data.forEach((comp: any) => {
+        const itemId = comp.inventory_item_id;
+        const usedQty = comp.quantity * comp.products.quantity_available;
+        usage[itemId] = (usage[itemId] || 0) + usedQty;
+      });
+
+      return usage;
+    },
+  });
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
@@ -25,56 +59,91 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {items.map((item) => (
-        <Card key={item.id} className="p-6 hover:shadow-lg transition-shadow">
-          {item.image_url && (
-            <img
-              src={item.image_url}
-              alt={item.name}
-              className="w-full h-40 object-cover rounded-md mb-4"
-            />
-          )}
-          <h3 className="text-xl font-semibold mb-2 text-foreground">{item.name}</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Quantity:</span>
-              <span className="font-medium text-foreground">{item.quantity}</span>
+      {items.map((item) => {
+        const usedInProducts = usageData[item.id] || 0;
+        const available = Number(item.quantity) - usedInProducts;
+        const isLowStock = available < 10 && available > 0;
+        const isOutOfStock = available <= 0;
+
+        return (
+          <Card key={item.id} className="p-6 hover:shadow-lg transition-shadow">
+            {item.image_url && (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                className="w-full h-40 object-cover rounded-md mb-4"
+              />
+            )}
+            <h3 className="text-xl font-semibold mb-2 text-foreground">{item.name}</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Quantity:</span>
+                <span className="font-medium text-foreground">{item.quantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Used in Products:</span>
+                <Badge variant="secondary" className="font-medium">
+                  {usedInProducts.toFixed(1)}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Available:</span>
+                <div className="flex items-center gap-2">
+                  {isOutOfStock && (
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  )}
+                  {isLowStock && !isOutOfStock && (
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  )}
+                  <span
+                    className={`font-medium ${
+                      isOutOfStock
+                        ? "text-destructive"
+                        : isLowStock
+                        ? "text-orange-500"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {available.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between pt-2 border-t">
+                <span className="text-muted-foreground">Unit Cost:</span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(item.unit_cost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Cost:</span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(item.total_cost || 0)}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Unit Cost:</span>
-              <span className="font-medium text-foreground">
-                ${item.unit_cost?.toFixed(2) || "0.00"}
-              </span>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(item)}
+                className="flex-1 gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onDelete(item.id)}
+                className="flex-1 gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Cost:</span>
-              <span className="font-medium text-foreground">
-                ${item.total_cost?.toFixed(2) || "0.00"}
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(item)}
-              className="flex-1 gap-2"
-            >
-              <Edit className="h-4 w-4" />
-              Edit
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onDelete(item.id)}
-              className="flex-1 gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 };
