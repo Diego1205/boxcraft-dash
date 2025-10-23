@@ -60,6 +60,11 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {items.map((item) => {
+        if (!item?.id) {
+          console.error("Item missing ID:", item);
+          return null;
+        }
+
         const usedInProducts = usageData[item.id] || 0;
         const totalQty = item.quantity != null ? Number(item.quantity) : 0;
         const available = isNaN(totalQty) ? 0 : totalQty - usedInProducts;

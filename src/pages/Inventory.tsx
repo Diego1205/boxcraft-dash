@@ -27,11 +27,12 @@ const Inventory = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("*")
+        .select("id, name, quantity, unit_cost, total_cost, image_url")
         .order("created_at", { ascending: false });
       
       if (error) throw error;
-      return data as InventoryItem[];
+      console.log("Fetched inventory items:", data);
+      return (data || []) as InventoryItem[];
     },
   });
 
