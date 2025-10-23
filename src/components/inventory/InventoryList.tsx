@@ -61,7 +61,8 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {items.map((item) => {
         const usedInProducts = usageData[item.id] || 0;
-        const available = Number(item.quantity) - usedInProducts;
+        const totalQty = item.quantity != null ? Number(item.quantity) : 0;
+        const available = isNaN(totalQty) ? 0 : totalQty - usedInProducts;
         const isLowStock = available < 10 && available > 0;
         const isOutOfStock = available <= 0;
 
@@ -78,7 +79,7 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Quantity:</span>
-                <span className="font-medium text-foreground">{item.quantity}</span>
+                <span className="font-medium text-foreground">{totalQty.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Used in Products:</span>

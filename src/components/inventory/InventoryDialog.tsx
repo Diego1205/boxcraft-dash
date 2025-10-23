@@ -34,9 +34,9 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
   useEffect(() => {
     if (editingItem) {
       setName(editingItem.name);
-      setQuantity(editingItem.quantity.toString());
-      setUnitCost(editingItem.unit_cost?.toString() || "");
-      setTotalCost(editingItem.total_cost?.toString() || "");
+      setQuantity(editingItem.quantity != null ? editingItem.quantity.toString() : "0");
+      setUnitCost(editingItem.unit_cost?.toString() || "0");
+      setTotalCost(editingItem.total_cost?.toString() || "0");
       setImagePreview(editingItem.image_url);
     } else {
       setName("");
@@ -96,11 +96,15 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
         imageUrl = publicUrl;
       }
 
+      const parsedQuantity = parseFloat(quantity);
+      const parsedUnitCost = parseFloat(unitCost);
+      const parsedTotalCost = parseFloat(totalCost);
+
       const itemData = {
         name,
-        quantity: parseFloat(quantity) || 0,
-        unit_cost: unitCost ? parseFloat(unitCost) : null,
-        total_cost: totalCost ? parseFloat(totalCost) : null,
+        quantity: isNaN(parsedQuantity) || parsedQuantity < 0 ? 0 : parsedQuantity,
+        unit_cost: isNaN(parsedUnitCost) ? 0 : parsedUnitCost,
+        total_cost: isNaN(parsedTotalCost) ? 0 : parsedTotalCost,
         image_url: imageUrl,
         business_id: business?.id,
       };
