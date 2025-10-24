@@ -30,7 +30,7 @@ export const BudgetCard = () => {
 
   // Calculate amount spent from inventory total costs
   const { data: inventoryItems = [] } = useQuery({
-    queryKey: ["inventory-items"],
+    queryKey: ["inventory-total-costs"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")

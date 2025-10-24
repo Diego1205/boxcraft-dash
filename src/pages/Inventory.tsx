@@ -57,6 +57,7 @@ const Inventory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-total-costs"] });
       toast.success("Item deleted successfully");
     },
     onError: () => {

@@ -124,6 +124,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-total-costs"] });
       toast.success(editingItem ? "Item updated" : "Item added");
       onOpenChange(false);
     },
