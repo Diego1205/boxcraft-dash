@@ -12,6 +12,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from "@dnd-kit/core";
 import { useState } from "react";
 
@@ -31,6 +32,42 @@ const statusColors: Record<OrderStatus, string> = {
   "Ready for Delivery": "border-l-4 border-l-purple-500",
   "Completed": "border-l-4 border-l-green-500",
   "Cancelled": "border-l-4 border-l-red-500",
+};
+
+interface KanbanColumnProps {
+  status: OrderStatus;
+  orders: Order[];
+  statusColor: string;
+}
+
+const KanbanColumn = ({ status, orders, statusColor }: KanbanColumnProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+  });
+
+  return (
+    <div key={status} className="space-y-4">
+      <div className={`bg-card border rounded-lg p-3 ${statusColor}`}>
+        <h3 className="font-semibold text-sm text-foreground">{status}</h3>
+        <p className="text-xs text-muted-foreground">{orders.length} orders</p>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`space-y-3 min-h-[200px] p-2 rounded-lg transition-colors ${
+          isOver ? "bg-accent/50 ring-2 ring-primary/50" : ""
+        }`}
+      >
+        {orders.map((order) => (
+          <OrderCard key={order.id} order={order} statusColor={statusColors[order.status]} />
+        ))}
+        {orders.length === 0 && (
+          <Card className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">No orders</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
 };
 
 interface OrderKanbanProps {
@@ -80,7 +117,10 @@ export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
       const orderId = active.id as string;
       const newStatus = over.id as OrderStatus;
 
-      updateStatusMutation.mutate({ orderId, newStatus });
+      // Only update if dropping on a valid status column
+      if (statuses.includes(newStatus)) {
+        updateStatusMutation.mutate({ orderId, newStatus });
+      }
     }
 
     setActiveOrder(null);
@@ -97,22 +137,12 @@ export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
           const statusOrders = orders.filter((order) => order.status === status);
 
           return (
-            <div key={status} className="space-y-4">
-              <div className={`bg-card border rounded-lg p-3 ${statusColors[status]}`}>
-                <h3 className="font-semibold text-sm text-foreground">{status}</h3>
-                <p className="text-xs text-muted-foreground">{statusOrders.length} orders</p>
-              </div>
-              <div className="space-y-3 min-h-[200px]">
-                {statusOrders.map((order) => (
-                  <OrderCard key={order.id} order={order} statusColor={statusColors[order.status]} />
-                ))}
-                {statusOrders.length === 0 && (
-                  <Card className="p-4 text-center">
-                    <p className="text-xs text-muted-foreground">No orders</p>
-                  </Card>
-                )}
-              </div>
-            </div>
+            <KanbanColumn
+              key={status}
+              status={status}
+              orders={statusOrders}
+              statusColor={statusColors[status]}
+            />
           );
         })}
       </div>
