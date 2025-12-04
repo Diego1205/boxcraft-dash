@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { GripVertical } from "lucide-react";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const statuses: OrderStatus[] = [
   "New Inquiry",
@@ -32,6 +33,7 @@ interface OrderCardProps {
 export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { formatCurrency } = useBusiness();
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
@@ -87,7 +89,7 @@ export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
             <div className="space-y-1 text-xs">
               <p className="text-muted-foreground">{order.product_name}</p>
               <p className="text-muted-foreground">Qty: {order.quantity}</p>
-              <p className="font-semibold text-foreground">${order.sale_price.toFixed(2)}</p>
+              <p className="font-semibold text-foreground">{formatCurrency(order.sale_price)}</p>
             </div>
             <Select value={order.status} onValueChange={handleStatusChange}>
               <SelectTrigger className="h-8 text-xs w-full">

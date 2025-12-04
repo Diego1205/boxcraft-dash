@@ -36,7 +36,7 @@ interface OrderDialogProps {
 }
 
 export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
-  const { business } = useBusiness();
+  const { business, formatCurrency } = useBusiness();
   const [clientName, setClientName] = useState("");
   const [clientContact, setClientContact] = useState("");
   const [productId, setProductId] = useState("");
@@ -202,7 +202,7 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
               <SelectContent>
                 {products.map((product) => (
                   <SelectItem key={product.id} value={product.id}>
-                    {product.name} - ${product.sale_price?.toFixed(2)} (Avail: {product.quantity_available})
+                    {product.name} - {formatCurrency(product.sale_price || 0)} (Avail: {product.quantity_available})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -221,7 +221,7 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
           {selectedProduct && (
             <div className="bg-muted p-3 rounded-lg">
               <p className="text-sm font-medium text-foreground">
-                Total: ${((selectedProduct.sale_price || 0) * (parseInt(quantity) || 1)).toFixed(2)}
+                Total: {formatCurrency((selectedProduct.sale_price || 0) * (parseInt(quantity) || 1))}
               </p>
             </div>
           )}
