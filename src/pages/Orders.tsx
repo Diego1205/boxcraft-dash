@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { OrderKanban } from "@/components/orders/OrderKanban";
 import { OrderDialog } from "@/components/orders/OrderDialog";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export type OrderStatus = "New Inquiry" | "In Progress" | "Deposit Received" | "Ready for Delivery" | "Completed" | "Cancelled";
 
@@ -23,19 +24,22 @@ export interface Order {
 }
 
 const Orders = () => {
+  const { business } = useBusiness();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["orders"],
+    queryKey: ["orders", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
         .select("*")
+        .eq("business_id", business!.id)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data as Order[];
     },
+    enabled: !!business?.id,
   });
 
   return (

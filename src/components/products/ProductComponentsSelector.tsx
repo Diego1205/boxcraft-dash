@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 interface ProductComponentsSelectorProps {
   selectedComponents: Array<{ item_id: string; quantity: number }>;
@@ -21,15 +22,19 @@ export const ProductComponentsSelector = ({
   selectedComponents,
   onComponentsChange,
 }: ProductComponentsSelectorProps) => {
+  const { business, formatCurrency } = useBusiness();
+  
   const { data: inventoryItems = [] } = useQuery({
-    queryKey: ["inventory-items"],
+    queryKey: ["inventory-items", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("*");
+        .select("*")
+        .eq("business_id", business!.id);
       if (error) throw error;
       return data;
     },
+    enabled: !!business?.id,
   });
 
   const addComponent = () => {
@@ -70,7 +75,7 @@ export const ProductComponentsSelector = ({
               <SelectContent>
                 {inventoryItems.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
-                    {item.name} (${item.unit_cost?.toFixed(2) || "0.00"})
+                    {item.name} ({formatCurrency(item.unit_cost || 0)})
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductDialog } from "@/components/products/ProductDialog";
 import { toast } from "sonner";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export interface Product {
   id: string;
@@ -16,21 +17,24 @@ export interface Product {
 }
 
 const Products = () => {
+  const { business } = useBusiness();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("business_id", business!.id)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data as Product[];
     },
+    enabled: !!business?.id,
   });
 
   const deleteMutation = useMutation({

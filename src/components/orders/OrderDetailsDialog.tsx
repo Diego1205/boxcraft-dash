@@ -19,6 +19,7 @@ import {
 import { Order, OrderStatus } from "@/pages/Orders";
 import { toast } from "sonner";
 import { Link2, Copy, Check } from "lucide-react";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 const statuses: OrderStatus[] = [
   "New Inquiry",
@@ -36,6 +37,7 @@ interface OrderDetailsDialogProps {
 }
 
 export const OrderDetailsDialog = ({ order, open, onOpenChange }: OrderDetailsDialogProps) => {
+  const { formatCurrency } = useBusiness();
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
@@ -145,7 +147,7 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange }: OrderDetailsDi
             </div>
             <div className="space-y-2">
               <Label>Sale Price</Label>
-              <p className="text-sm text-foreground">${order.sale_price.toFixed(2)}</p>
+              <p className="text-sm text-foreground">{formatCurrency(order.sale_price)}</p>
             </div>
           </div>
           {order.delivery_info && (
