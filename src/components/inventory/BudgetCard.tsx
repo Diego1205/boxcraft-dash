@@ -16,28 +16,32 @@ export const BudgetCard = () => {
   const queryClient = useQueryClient();
 
   const { data: budget } = useQuery({
-    queryKey: ["budget-settings"],
+    queryKey: ["budget-settings", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("budget_settings")
         .select("*")
+        .eq("business_id", business!.id)
         .single();
       
       if (error) throw error;
       return data;
     },
+    enabled: !!business?.id,
   });
 
   // Calculate amount spent from inventory total costs
   const { data: inventoryItems = [] } = useQuery({
-    queryKey: ["inventory-total-costs"],
+    queryKey: ["inventory-total-costs", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("total_cost");
+        .select("total_cost")
+        .eq("business_id", business!.id);
       if (error) throw error;
       return data;
     },
+    enabled: !!business?.id,
   });
 
   const calculatedAmountSpent = inventoryItems.reduce((sum, item) => {

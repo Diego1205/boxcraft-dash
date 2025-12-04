@@ -57,6 +57,14 @@ export const InviteUserDialog = ({ open, onOpenChange }: InviteUserDialogProps) 
         });
 
         if (roleError) throw roleError;
+
+        // Update their profile with business_id
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ business_id: business.id })
+          .eq("id", existingUser.id);
+
+        if (profileError) throw profileError;
       } else {
         // New user - create account and assign role
         const { data: authData, error: signUpError } = await supabase.auth.signUp({

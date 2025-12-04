@@ -72,14 +72,16 @@ export const ProductDialog = ({ open, onOpenChange, editingProduct }: ProductDia
   }, [existingComponents]);
 
   const { data: inventoryItems = [] } = useQuery({
-    queryKey: ["inventory-items"],
+    queryKey: ["inventory-items", business?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("*");
+        .select("*")
+        .eq("business_id", business!.id);
       if (error) throw error;
       return data;
     },
+    enabled: !!business?.id,
   });
 
   // Query to get inventory usage
