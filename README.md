@@ -1,73 +1,37 @@
-# Welcome to your Lovable project
+🏗 Architecture & Tech Stack
 
-## Project info
+This application was architected to balance rapid development with a robust, scalable backend. It leverages a modern stack to ensure performance and security.
 
-**URL**: https://lovable.dev/projects/7b27686a-2bf9-44d5-9883-05b198c65ba0
+Frontend: React + Vite (Accelerated using Lovable.dev)
 
-## How can I edit this code?
+Styling: Tailwind CSS + Shadcn UI
 
-There are several ways of editing your application.
+Backend: Supabase (PostgreSQL)
 
-**Use Lovable**
+Authentication: Supabase Auth
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7b27686a-2bf9-44d5-9883-05b198c65ba0) and start prompting.
+State Management: TanStack Query
 
-Changes made via Lovable will be committed automatically to this repo.
+💡 Solution Overview
 
-**Use your preferred IDE**
+As a Technical Solutions Architect, I designed this system to solve the common fragmentation problem in inventory management. The goal was to create a centralized "source of truth" that connects inventory levels directly with order processing and budget tracking.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Key Features:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Real-Time Analytics Dashboard: Instant visibility into Total Inventory Value, Active Orders, and Monthly Revenue using live data subscriptions.
 
-Follow these steps:
+Budget Tracking: Integrated budget overview to monitor spend vs. allocation in real-time.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Inventory & Product Management: CRUD operations for complex product catalogs.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Order Lifecycle Management: Full workflow for tracking orders from "New Inquiry" to "Completed" or "Cancelled."
 
-# Step 3: Install the necessary dependencies.
-npm i
+Multi-Currency Support: Built with localization in mind (currently configured for PEN/Sol).
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+🚀 Why Supabase?
 
-**Edit a file directly in GitHub**
+Supabase was chosen as the backend infrastructure to leverage:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Row Level Security (RLS): To ensure secure data access patterns for the "Team" functionality.
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/7b27686a-2bf9-44d5-9883-05b198c65ba0) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Realtime Subscriptions: To update the dashboard metrics immediately as new orders are placed.
