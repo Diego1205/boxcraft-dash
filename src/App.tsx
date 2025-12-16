@@ -12,6 +12,7 @@ import BusinessOnboarding from "./pages/BusinessOnboarding";
 import BusinessSettings from "./pages/BusinessSettings";
 import DeliveryConfirmation from "./pages/DeliveryConfirmation";
 import UserManagement from "./pages/UserManagement";
+import DriverDashboard from "./pages/DriverDashboard";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessProvider } from "./contexts/BusinessContext";
@@ -27,6 +28,17 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="min-h-screen flex flex-col w-full">
       <Header />
       <TabNavigation />
+      <main className="flex-1">
+        {children}
+      </main>
+    </div>
+  );
+};
+
+const DriverLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="min-h-screen flex flex-col w-full">
+      <Header />
       <main className="flex-1">
         {children}
       </main>
@@ -52,6 +64,15 @@ const App = () => (
               <Route path="/auth" element={<AuthRedirect />} />
               <Route path="/onboarding" element={<BusinessOnboarding />} />
               <Route path="/delivery/:token" element={<DeliveryConfirmation />} />
+              
+              {/* Driver-specific route */}
+              <Route path="/driver" element={
+                <ProtectedRoute allowDrivers>
+                  <DriverLayout>
+                    <DriverDashboard />
+                  </DriverLayout>
+                </ProtectedRoute>
+              } />
               
               <Route path="/" element={
                 <ProtectedRoute>
