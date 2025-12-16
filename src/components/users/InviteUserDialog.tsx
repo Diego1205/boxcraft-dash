@@ -49,7 +49,31 @@ export const InviteUserDialog = ({ open, onOpenChange }: InviteUserDialogProps) 
         .maybeSingle();
 
       if (existingUser) {
-        // User exists, add them to the business
+        // Check if user already has a role in THIS business
+        const { data: existingRole } = await supabase
+          .from("user_roles")
+          .select("id, role")
+          .eq("user_id", existingUser.id)
+          .eq("business_id", business.id)
+          .maybeSingle();
+
+        if (existingRole) {
+          throw new Error(`This user is already a team member with the "${existingRole.role}" role`);
+        }
+
+        // Check if user has a role in a DIFFERENT business
+        const { data: otherBusinessRole } = await supabase
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", existingUser.id)
+          .neq("business_id", business.id)
+          .maybeSingle();
+
+        if (otherBusinessRole) {
+          throw new Error("This user belongs to another business. They must leave that business first.");
+        }
+
+        // User exists but has no role - add them to the business
         const { error: roleError } = await supabase.from("user_roles").insert({
           user_id: existingUser.id,
           business_id: business.id,

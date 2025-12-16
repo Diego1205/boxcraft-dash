@@ -5,7 +5,12 @@ import { useBusiness } from '@/contexts/BusinessContext';
 
 export const TabNavigation = () => {
   const location = useLocation();
-  const { isOwner, isAdmin } = useBusiness();
+  const { isOwner, isAdmin, isDriver } = useBusiness();
+
+  // Drivers don't see the tab navigation - they have their own dashboard
+  if (isDriver && !isOwner && !isAdmin) {
+    return null;
+  }
 
   const tabs = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
