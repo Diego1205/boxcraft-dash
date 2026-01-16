@@ -21,6 +21,8 @@ export interface Order {
   payment_method: string | null;
   status: OrderStatus;
   created_at: string;
+  assigned_driver_id: string | null;
+  assigned_driver_name?: string | null;
 }
 
 const Orders = () => {
@@ -30,14 +32,39 @@ const Orders = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders", business?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get orders
+      const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select("*")
         .eq("business_id", business!.id)
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
-      return data as Order[];
+      if (ordersError) throw ordersError;
+
+      // Get unique driver IDs that are assigned
+      const driverIds = [...new Set(ordersData.filter(o => o.assigned_driver_id).map(o => o.assigned_driver_id))];
+      
+      // Fetch driver names if there are any assigned
+      let driverMap: Record<string, string> = {};
+      if (driverIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", driverIds);
+        
+        if (!profilesError && profiles) {
+          driverMap = profiles.reduce((acc, p) => {
+            acc[p.id] = p.full_name || p.email || "Unknown";
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+
+      // Map orders with driver names
+      return ordersData.map(order => ({
+        ...order,
+        assigned_driver_name: order.assigned_driver_id ? driverMap[order.assigned_driver_id] : null,
+      })) as Order[];
     },
     enabled: !!business?.id,
   });
