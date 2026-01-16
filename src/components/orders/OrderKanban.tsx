@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Order, OrderStatus } from "@/pages/Orders";
 import { OrderCard } from "./OrderCard";
+import { OrderCompletionConfirmDialog } from "./OrderCompletionConfirmDialog";
+import { OrderCancellationConfirmDialog } from "./OrderCancellationConfirmDialog";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -14,7 +17,6 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import { useState } from "react";
 
 const statuses: OrderStatus[] = [
   "New Inquiry",
@@ -77,6 +79,9 @@ interface OrderKanbanProps {
 
 export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+  const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
+  const [pendingDrop, setPendingDrop] = useState<{ orderId: string; newStatus: OrderStatus } | null>(null);
   const queryClient = useQueryClient();
 
   const sensors = useSensors(
@@ -98,10 +103,16 @@ export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Order status updated");
+      setCompletionDialogOpen(false);
+      setCancellationDialogOpen(false);
+      setPendingDrop(null);
     },
     onError: () => {
       toast.error("Failed to update order status");
+      setPendingDrop(null);
     },
   });
 
@@ -116,9 +127,26 @@ export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
     if (over && active.id !== over.id) {
       const orderId = active.id as string;
       const newStatus = over.id as OrderStatus;
+      const order = orders.find((o) => o.id === orderId);
 
       // Only update if dropping on a valid status column
-      if (statuses.includes(newStatus)) {
+      if (statuses.includes(newStatus) && order) {
+        // Show confirmation for completing orders
+        if (newStatus === "Completed" && order.status !== "Completed") {
+          setPendingDrop({ orderId, newStatus });
+          setCompletionDialogOpen(true);
+          setActiveOrder(null);
+          return;
+        }
+
+        // Show confirmation for cancelling orders
+        if (newStatus === "Cancelled") {
+          setPendingDrop({ orderId, newStatus });
+          setCancellationDialogOpen(true);
+          setActiveOrder(null);
+          return;
+        }
+
         updateStatusMutation.mutate({ orderId, newStatus });
       }
     }
@@ -126,34 +154,71 @@ export const OrderKanban = ({ orders, isLoading }: OrderKanbanProps) => {
     setActiveOrder(null);
   };
 
+  const handleConfirmCompletion = () => {
+    if (pendingDrop) {
+      updateStatusMutation.mutate(pendingDrop);
+    }
+  };
+
+  const handleConfirmCancellation = () => {
+    if (pendingDrop) {
+      updateStatusMutation.mutate(pendingDrop);
+    }
+  };
+
+  const pendingOrder = pendingDrop ? orders.find((o) => o.id === pendingDrop.orderId) : null;
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {statuses.map((status) => {
-          const statusOrders = orders.filter((order) => order.status === status);
+    <>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          {statuses.map((status) => {
+            const statusOrders = orders.filter((order) => order.status === status);
 
-          return (
-            <KanbanColumn
-              key={status}
-              status={status}
-              orders={statusOrders}
-              statusColor={statusColors[status]}
-            />
-          );
-        })}
-      </div>
+            return (
+              <KanbanColumn
+                key={status}
+                status={status}
+                orders={statusOrders}
+                statusColor={statusColors[status]}
+              />
+            );
+          })}
+        </div>
 
-      <DragOverlay>
-        {activeOrder ? (
-          <div className="opacity-80">
-            <OrderCard order={activeOrder} statusColor={statusColors[activeOrder.status]} />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeOrder ? (
+            <div className="opacity-80">
+              <OrderCard order={activeOrder} statusColor={statusColors[activeOrder.status]} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <OrderCompletionConfirmDialog
+        order={pendingOrder || null}
+        open={completionDialogOpen}
+        onOpenChange={(open) => {
+          setCompletionDialogOpen(open);
+          if (!open) setPendingDrop(null);
+        }}
+        onConfirm={handleConfirmCompletion}
+        isPending={updateStatusMutation.isPending}
+      />
+      <OrderCancellationConfirmDialog
+        order={pendingOrder || null}
+        open={cancellationDialogOpen}
+        onOpenChange={(open) => {
+          setCancellationDialogOpen(open);
+          if (!open) setPendingDrop(null);
+        }}
+        onConfirm={handleConfirmCancellation}
+        isPending={updateStatusMutation.isPending}
+      />
+    </>
   );
 };

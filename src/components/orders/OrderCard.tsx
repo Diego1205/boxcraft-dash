@@ -3,8 +3,11 @@ import { useDraggable } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Order, OrderStatus } from "@/pages/Orders";
 import { OrderDetailsDialog } from "./OrderDetailsDialog";
+import { OrderCompletionConfirmDialog } from "./OrderCompletionConfirmDialog";
+import { OrderCancellationConfirmDialog } from "./OrderCancellationConfirmDialog";
 import {
   Select,
   SelectContent,
@@ -13,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { GripVertical } from "lucide-react";
+import { GripVertical, User } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 const statuses: OrderStatus[] = [
@@ -32,6 +35,9 @@ interface OrderCardProps {
 
 export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+  const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const queryClient = useQueryClient();
   const { formatCurrency } = useBusiness();
 
@@ -57,15 +63,49 @@ export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Order status updated");
+      setCompletionDialogOpen(false);
+      setCancellationDialogOpen(false);
+      setPendingStatus(null);
     },
     onError: () => {
       toast.error("Failed to update order status");
+      setPendingStatus(null);
     },
   });
 
   const handleStatusChange = (newStatus: string) => {
-    updateStatusMutation.mutate(newStatus as OrderStatus);
+    const status = newStatus as OrderStatus;
+
+    // Show confirmation for completing orders
+    if (status === "Completed" && order.status !== "Completed") {
+      setPendingStatus(status);
+      setCompletionDialogOpen(true);
+      return;
+    }
+
+    // Show confirmation for cancelling orders
+    if (status === "Cancelled") {
+      setPendingStatus(status);
+      setCancellationDialogOpen(true);
+      return;
+    }
+
+    updateStatusMutation.mutate(status);
+  };
+
+  const handleConfirmCompletion = () => {
+    if (pendingStatus) {
+      updateStatusMutation.mutate(pendingStatus);
+    }
+  };
+
+  const handleConfirmCancellation = () => {
+    if (pendingStatus) {
+      updateStatusMutation.mutate(pendingStatus);
+    }
   };
 
   return (
@@ -91,6 +131,12 @@ export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
               <p className="text-muted-foreground">Qty: {order.quantity}</p>
               <p className="font-semibold text-foreground">{formatCurrency(order.sale_price)}</p>
             </div>
+            {order.assigned_driver_name && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <User className="h-3 w-3" />
+                {order.assigned_driver_name}
+              </Badge>
+            )}
             <Select value={order.status} onValueChange={handleStatusChange}>
               <SelectTrigger className="h-8 text-xs w-full">
                 <SelectValue />
@@ -107,6 +153,26 @@ export const OrderCard = ({ order, statusColor }: OrderCardProps) => {
         </div>
       </Card>
       <OrderDetailsDialog order={order} open={isOpen} onOpenChange={setIsOpen} />
+      <OrderCompletionConfirmDialog
+        order={order}
+        open={completionDialogOpen}
+        onOpenChange={(open) => {
+          setCompletionDialogOpen(open);
+          if (!open) setPendingStatus(null);
+        }}
+        onConfirm={handleConfirmCompletion}
+        isPending={updateStatusMutation.isPending}
+      />
+      <OrderCancellationConfirmDialog
+        order={order}
+        open={cancellationDialogOpen}
+        onOpenChange={(open) => {
+          setCancellationDialogOpen(open);
+          if (!open) setPendingStatus(null);
+        }}
+        onConfirm={handleConfirmCancellation}
+        isPending={updateStatusMutation.isPending}
+      />
     </>
   );
 };

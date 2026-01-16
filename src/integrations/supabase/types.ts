@@ -160,6 +160,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          assigned_driver_id: string | null
           business_id: string | null
           client_contact: string | null
           client_name: string
@@ -175,6 +176,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_driver_id?: string | null
           business_id?: string | null
           client_contact?: string | null
           client_name: string
@@ -190,6 +192,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_driver_id?: string | null
           business_id?: string | null
           client_contact?: string | null
           client_name?: string
@@ -205,6 +208,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_assigned_driver_id_fkey"
+            columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_business_id_fkey"
             columns: ["business_id"]
