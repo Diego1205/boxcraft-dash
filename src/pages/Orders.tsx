@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { OrderKanban } from "@/components/orders/OrderKanban";
 import { OrderDialog } from "@/components/orders/OrderDialog";
+import { OrderFilters, OrderFiltersState } from "@/components/orders/OrderFilters";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 export type OrderStatus = "New Inquiry" | "In Progress" | "Deposit Received" | "Ready for Delivery" | "Completed" | "Cancelled";
@@ -25,9 +26,23 @@ export interface Order {
   assigned_driver_name?: string | null;
 }
 
+// Helper for timezone-safe date comparison
+const formatDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const Orders = () => {
   const { business } = useBusiness();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [filters, setFilters] = useState<OrderFiltersState>({
+    search: "",
+    statuses: [],
+    dateFrom: null,
+    dateTo: null,
+  });
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders", business?.id],
@@ -69,9 +84,43 @@ const Orders = () => {
     enabled: !!business?.id,
   });
 
+  // Filter orders based on current filters
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // Search filter (client name or product name)
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch =
+          order.client_name.toLowerCase().includes(searchLower) ||
+          order.product_name.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Status filter (if specific statuses selected)
+      if (filters.statuses.length > 0) {
+        if (!filters.statuses.includes(order.status)) return false;
+      }
+
+      // Date range filter (using local date comparison)
+      const orderDate = new Date(order.created_at);
+      if (filters.dateFrom) {
+        if (formatDateString(orderDate) < formatDateString(filters.dateFrom)) {
+          return false;
+        }
+      }
+      if (filters.dateTo) {
+        if (formatDateString(orderDate) > formatDateString(filters.dateTo)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [orders, filters]);
+
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-4xl font-bold text-foreground">Order Management</h1>
           <p className="text-muted-foreground mt-2">Track and manage customer orders</p>
@@ -82,7 +131,16 @@ const Orders = () => {
         </Button>
       </div>
 
-      <OrderKanban orders={orders} isLoading={isLoading} />
+      <div className="mb-6">
+        <OrderFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          totalCount={orders.length}
+          filteredCount={filteredOrders.length}
+        />
+      </div>
+
+      <OrderKanban orders={filteredOrders} isLoading={isLoading} />
 
       <OrderDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
     </div>
