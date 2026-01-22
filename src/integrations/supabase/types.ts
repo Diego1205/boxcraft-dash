@@ -117,33 +117,39 @@ export type Database = {
       inventory_items: {
         Row: {
           business_id: string | null
+          category: string | null
           created_at: string | null
           id: string
           image_url: string | null
           name: string
           quantity: number
+          reorder_level: number | null
           total_cost: number | null
           unit_cost: number | null
           updated_at: string | null
         }
         Insert: {
           business_id?: string | null
+          category?: string | null
           created_at?: string | null
           id?: string
           image_url?: string | null
           name: string
           quantity?: number
+          reorder_level?: number | null
           total_cost?: number | null
           unit_cost?: number | null
           updated_at?: string | null
         }
         Update: {
           business_id?: string | null
+          category?: string | null
           created_at?: string | null
           id?: string
           image_url?: string | null
           name?: string
           quantity?: number
+          reorder_level?: number | null
           total_cost?: number | null
           unit_cost?: number | null
           updated_at?: string | null

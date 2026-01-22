@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, PackagePlus } from "lucide-react";
 import { InventoryItem } from "@/pages/Inventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 
@@ -12,9 +12,10 @@ interface InventoryListProps {
   isLoading: boolean;
   onEdit: (item: InventoryItem) => void;
   onDelete: (id: string) => void;
+  onAdjustStock: (item: InventoryItem, available: number) => void;
 }
 
-export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryListProps) => {
+export const InventoryList = ({ items, isLoading, onEdit, onDelete, onAdjustStock }: InventoryListProps) => {
   const { formatCurrency } = useBusiness();
 
   // Query to get usage of each inventory item in products
@@ -68,7 +69,8 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
         const usedInProducts = usageData[item.id] || 0;
         const totalQty = item.quantity != null ? Number(item.quantity) : 0;
         const available = isNaN(totalQty) ? 0 : totalQty - usedInProducts;
-        const isLowStock = available < 10 && available > 0;
+        const reorderLevel = item.reorder_level ?? 10;
+        const isLowStock = available < reorderLevel && available > 0;
         const isOutOfStock = available <= 0;
 
         return (
@@ -80,7 +82,14 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
                 className="w-full h-40 object-cover rounded-md mb-4"
               />
             )}
-            <h3 className="text-xl font-semibold mb-2 text-foreground">{item.name}</h3>
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-xl font-semibold text-foreground">{item.name}</h3>
+              {item.category && (
+                <Badge variant="secondary" className="ml-2">
+                  {item.category}
+                </Badge>
+              )}
+            </div>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Quantity:</span>
@@ -114,6 +123,10 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
                   </span>
                 </div>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reorder Level:</span>
+                <span className="font-medium text-foreground">{reorderLevel}</span>
+              </div>
               <div className="flex justify-between pt-2 border-t">
                 <span className="text-muted-foreground">Unit Cost:</span>
                 <span className="font-medium text-foreground">
@@ -131,6 +144,15 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => onAdjustStock(item, available)}
+                className="flex-1 gap-2"
+              >
+                <PackagePlus className="h-4 w-4" />
+                Adjust
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => onEdit(item)}
                 className="flex-1 gap-2"
               >
@@ -141,10 +163,9 @@ export const InventoryList = ({ items, isLoading, onEdit, onDelete }: InventoryL
                 variant="destructive"
                 size="sm"
                 onClick={() => onDelete(item.id)}
-                className="flex-1 gap-2"
+                className="gap-2"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete
               </Button>
             </div>
           </Card>

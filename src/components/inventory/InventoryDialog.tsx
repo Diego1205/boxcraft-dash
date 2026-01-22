@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { InventoryItem } from "@/pages/Inventory";
-import { Upload } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 interface InventoryDialogProps {
@@ -22,14 +21,31 @@ interface InventoryDialogProps {
 }
 
 export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDialogProps) => {
-  const { business, formatCurrency } = useBusiness();
+  const { business } = useBusiness();
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [totalCost, setTotalCost] = useState("");
+  const [reorderLevel, setReorderLevel] = useState("10");
+  const [category, setCategory] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Fetch existing categories for suggestions
+  const { data: existingCategories = [] } = useQuery({
+    queryKey: ["inventory-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("category")
+        .not("category", "is", null);
+      
+      if (error) throw error;
+      const cats = data.map((d) => d.category).filter((c): c is string => !!c);
+      return [...new Set(cats)].sort();
+    },
+  });
 
   useEffect(() => {
     if (editingItem) {
@@ -37,12 +53,16 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
       setQuantity(editingItem.quantity != null ? editingItem.quantity.toString() : "0");
       setUnitCost(editingItem.unit_cost?.toString() || "0");
       setTotalCost(editingItem.total_cost?.toString() || "0");
+      setReorderLevel(editingItem.reorder_level?.toString() || "10");
+      setCategory(editingItem.category || "");
       setImagePreview(editingItem.image_url);
     } else {
       setName("");
       setQuantity("");
       setUnitCost("");
       setTotalCost("");
+      setReorderLevel("10");
+      setCategory("");
       setImageFile(null);
       setImagePreview(null);
     }
@@ -83,7 +103,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("inventory-images")
           .upload(fileName, imageFile);
 
@@ -99,12 +119,15 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
       const parsedQuantity = parseFloat(quantity);
       const parsedUnitCost = parseFloat(unitCost);
       const parsedTotalCost = parseFloat(totalCost);
+      const parsedReorderLevel = parseFloat(reorderLevel);
 
       const itemData = {
         name,
         quantity: isNaN(parsedQuantity) || parsedQuantity < 0 ? 0 : parsedQuantity,
         unit_cost: isNaN(parsedUnitCost) ? 0 : parsedUnitCost,
         total_cost: isNaN(parsedTotalCost) ? 0 : parsedTotalCost,
+        reorder_level: isNaN(parsedReorderLevel) || parsedReorderLevel < 0 ? 10 : parsedReorderLevel,
+        category: category.trim() || null,
         image_url: imageUrl,
         business_id: business?.id,
       };
@@ -125,6 +148,7 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-total-costs"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
       toast.success(editingItem ? "Item updated" : "Item added");
       onOpenChange(false);
     },
@@ -158,6 +182,21 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="category">Category (Optional)</Label>
+            <Input
+              id="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g., Packaging, Toys, Decorations"
+              list="category-suggestions"
+            />
+            <datalist id="category-suggestions">
+              {existingCategories.map((cat) => (
+                <option key={cat} value={cat} />
+              ))}
+            </datalist>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="image">Image (Optional)</Label>
             <div className="flex items-center gap-4">
               <Input
@@ -172,37 +211,51 @@ export const InventoryDialog = ({ open, onOpenChange, editingItem }: InventoryDi
               )}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Quantity</Label>
-            <Input
-              id="quantity"
-              type="number"
-              value={quantity}
-              onChange={(e) => handleQuantityChange(e.target.value)}
-              placeholder="0"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                value={quantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reorderLevel">Reorder Level</Label>
+              <Input
+                id="reorderLevel"
+                type="number"
+                value={reorderLevel}
+                onChange={(e) => setReorderLevel(e.target.value)}
+                placeholder="10"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="unitCost">Unit Cost ({business?.currency_symbol || '$'})</Label>
-            <Input
-              id="unitCost"
-              type="number"
-              step="0.01"
-              value={unitCost}
-              onChange={(e) => handleUnitCostChange(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="totalCost">Total Cost ({business?.currency_symbol || '$'})</Label>
-            <Input
-              id="totalCost"
-              type="number"
-              step="0.01"
-              value={totalCost}
-              onChange={(e) => handleTotalCostChange(e.target.value)}
-              placeholder="0.00"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="unitCost">Unit Cost ({business?.currency_symbol || '$'})</Label>
+              <Input
+                id="unitCost"
+                type="number"
+                step="0.01"
+                value={unitCost}
+                onChange={(e) => handleUnitCostChange(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="totalCost">Total Cost ({business?.currency_symbol || '$'})</Label>
+              <Input
+                id="totalCost"
+                type="number"
+                step="0.01"
+                value={totalCost}
+                onChange={(e) => handleTotalCostChange(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2">

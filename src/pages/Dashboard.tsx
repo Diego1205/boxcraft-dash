@@ -66,14 +66,51 @@ const Dashboard = () => {
     queryKey: ['low-stock', business?.id],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('name, quantity')
-        .eq('business_id', business.id)
-        .lt('quantity', 10);
       
-      if (error) throw error;
-      return data;
+      // Get inventory items with their reorder levels
+      const { data: items, error: itemsError } = await supabase
+        .from('inventory_items')
+        .select('id, name, quantity, reorder_level')
+        .eq('business_id', business.id);
+      
+      if (itemsError) throw itemsError;
+
+      // Get product component usage
+      const { data: components, error: compError } = await supabase
+        .from('product_components')
+        .select(`
+          inventory_item_id,
+          quantity,
+          products!inner (
+            quantity_available
+          )
+        `);
+
+      if (compError) throw compError;
+
+      // Calculate usage per item
+      const usage: Record<string, number> = {};
+      components.forEach((comp: any) => {
+        const itemId = comp.inventory_item_id;
+        const usedQty = comp.quantity * comp.products.quantity_available;
+        usage[itemId] = (usage[itemId] || 0) + usedQty;
+      });
+
+      // Filter items where available < reorder_level
+      return (items || [])
+        .map(item => {
+          const usedInProducts = usage[item.id] || 0;
+          const available = (item.quantity || 0) - usedInProducts;
+          const reorderLevel = item.reorder_level ?? 10;
+          return {
+            ...item,
+            available,
+            reorderLevel,
+            isLow: available < reorderLevel && available > 0,
+            isOut: available <= 0,
+          };
+        })
+        .filter(item => item.available < item.reorderLevel);
     },
     enabled: !!business,
   });
@@ -185,10 +222,17 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {lowStockItems.map((item, index) => (
+                {lowStockItems.map((item: any, index: number) => (
                   <div key={index} className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-yellow-600 font-semibold">{item.quantity} left</span>
+                    <div>
+                      <span className="font-medium">{item.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (reorder at {item.reorderLevel})
+                      </span>
+                    </div>
+                    <span className={item.isOut ? "text-destructive font-semibold" : "text-yellow-600 font-semibold"}>
+                      {item.available.toFixed(1)} available
+                    </span>
                   </div>
                 ))}
               </div>
