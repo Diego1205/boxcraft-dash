@@ -227,11 +227,11 @@ const Dashboard = () => {
                     <div>
                       <span className="font-medium">{item.name}</span>
                       <span className="text-xs text-muted-foreground ml-2">
-                        (reorder at {item.reorderLevel})
+                        (reorder at {item.reorderLevel ?? 10})
                       </span>
                     </div>
                     <span className={item.isOut ? "text-destructive font-semibold" : "text-yellow-600 font-semibold"}>
-                      {item.available.toFixed(1)} available
+                      {(item.available ?? 0).toFixed(1)} available
                     </span>
                   </div>
                 ))}
