@@ -1,117 +1,205 @@
 
-## Fix Plan: Team Management and Invitation Flow Issues
+
+## Password Reset and User Removal Improvements
 
 ### Problem Summary
 
-Two related issues stem from the invitation flow and profile/role synchronization:
+Invited users (like `diego@craftedxi.com` and `diego1205@gmail.com`) confirmed their email but were assigned a random UUID password during invitation. They cannot log in because:
+1. They don't know their password (it was randomly generated)
+2. There's no "Forgot Password" option on the login page
 
-| Issue | Symptom | Root Cause |
-|-------|---------|------------|
-| #1 | User "already a team member" but table is empty | Team members query likely failing silently OR the owner can't see all team members |
-| #2 | Invited user sent to onboarding | `profiles.business_id` is NULL because RLS prevents owner from updating another user's profile |
-
----
-
-### Database Evidence
-
-```
-diego1205@gmail.com:    business_id = 293bfb7d...  role = driver ✅ (should show)
-diego@craftedxi.com:    business_id = NULL         role = admin  ❌ (needs fix)
-diego@dervlabs.com:     business_id = 293bfb7d...  role = owner  ✅
-```
+Additionally, removing a user only removes their role - they remain as authenticated users in Supabase.
 
 ---
 
-### Root Cause Analysis
+### Solution: Two Features
 
-**Issue #1: Empty Team Table**
-The query uses `profiles!inner` join which requires the `profiles` table to be readable. The RLS policy on `profiles` is:
-```sql
-USING ((id = auth.uid()) OR (business_id = get_user_business_id(auth.uid())))
+#### Feature 1: Add Forgot Password Flow
+
+Add a password reset option to the Auth page so invited users can set their real password.
+
+**File Changes:**
+
+1. **Modify** `src/pages/Auth.tsx`
+   - Add "Forgot Password?" link below sign-in form
+   - Add new tab/section for password reset
+   - Use `supabase.auth.resetPasswordForEmail()` to send reset link
+   - Add a route handler for the password reset callback
+
+2. **Create** `src/pages/ResetPassword.tsx`
+   - Page that handles the password reset token from email
+   - Allows user to set their new password
+   - Uses `supabase.auth.updateUser({ password })`
+
+3. **Modify** `src/App.tsx`
+   - Add route for `/reset-password`
+
+**Password Reset Flow:**
+```text
+User clicks "Forgot Password?"
+       ↓
+Enters email → supabase.auth.resetPasswordForEmail()
+       ↓
+Email sent with reset link
+       ↓
+User clicks link → /reset-password?token=...
+       ↓
+User sets new password → supabase.auth.updateUser()
+       ↓
+Redirected to login
 ```
-This should work, but if `business_id` is NULL for an invited user, the join fails silently.
-
-**Issue #2: NULL business_id**
-In `InviteUserDialog.tsx`, after creating a new user or assigning a role to an existing one, the code attempts:
-```typescript
-await supabase.from("profiles").update({ business_id: business.id }).eq("id", authData.user.id);
-```
-
-This fails because the RLS policy only allows:
-```sql
-USING (id = auth.uid())  -- Users can only update their OWN profile
-```
-
-The **owner cannot update another user's profile** - RLS blocks it silently.
 
 ---
 
-### Solution: Two-Part Fix
+#### Feature 2: Improve User Removal
 
-#### Part 1: Database - Create RPC Function for Safe Profile Updates
+Currently removing a user only deletes their role. The user remains in `auth.users` and `profiles`.
 
-Create a `SECURITY DEFINER` function that the owner can call to set a user's `business_id` when inviting them:
+**Options for removal behavior:**
+
+| Action | Effect | Re-invite Possible? |
+|--------|--------|---------------------|
+| Remove from team (current) | Deletes role, keeps auth user | Yes, but confusing |
+| Full removal | Deletes role + profile + clears business_id | Yes, cleaner |
+
+**Recommended Approach:**
+When removing a user, also clear their `business_id` from `profiles`. This way:
+- They're no longer associated with any business
+- If they try to log in, they'll be sent to onboarding (which shows an error since they don't own a business)
+- They can be re-invited to the same or different business
+
+**File Changes:**
+
+1. **Modify** `src/pages/UserManagement.tsx`
+   - After deleting role, also update profile to clear `business_id`
+   - Add confirmation dialog explaining what removal does
+
+2. **Create database function** (optional, for atomicity)
+   - `remove_user_from_business(user_id, business_id)` that handles both operations
+
+---
+
+### Implementation Details
+
+#### Auth.tsx - Add Forgot Password
+
+Add below the Sign In form button:
+```tsx
+<div className="text-center mt-4">
+  <button
+    type="button"
+    onClick={() => setShowForgotPassword(true)}
+    className="text-sm text-muted-foreground hover:text-primary underline"
+  >
+    Forgot your password?
+  </button>
+</div>
+```
+
+Add forgot password dialog/form:
+```tsx
+const handleForgotPassword = async (email: string) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  if (error) {
+    toast.error(error.message);
+  } else {
+    toast.success('Password reset email sent! Check your inbox.');
+  }
+};
+```
+
+#### ResetPassword.tsx - New Page
+
+```tsx
+const ResetPassword = () => {
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    const { error } = await supabase.auth.updateUser({ password });
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Password updated successfully!');
+      navigate('/auth');
+    }
+    setLoading(false);
+  };
+
+  return (
+    // Form with password + confirm password inputs
+  );
+};
+```
+
+#### UserManagement.tsx - Enhanced Removal
+
+```tsx
+const removeUserMutation = useMutation({
+  mutationFn: async (userId: string) => {
+    // Get the user_id from the role record
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("id", userId)
+      .single();
+    
+    if (!roleData) throw new Error("Role not found");
+    
+    // Delete the role
+    const { error: roleError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("id", userId)
+      .eq("business_id", business?.id);
+    
+    if (roleError) throw roleError;
+    
+    // Clear business_id from profile (user can be re-invited later)
+    // Note: This requires RPC function since owner can't update others' profiles
+    await supabase.rpc('clear_user_business', { _user_id: roleData.user_id });
+  },
+  // ...
+});
+```
+
+---
+
+### Database Migration
 
 ```sql
-CREATE OR REPLACE FUNCTION public.assign_user_to_business(
-  _user_id uuid,
-  _business_id uuid
-)
+-- Function to clear a user's business_id when removing from team
+CREATE OR REPLACE FUNCTION public.clear_user_business(_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 BEGIN
-  -- Verify the caller is the owner of the target business
+  -- Verify caller is an owner
   IF NOT has_role(auth.uid(), 'owner') THEN
-    RAISE EXCEPTION 'Only business owners can assign users';
+    RAISE EXCEPTION 'Only business owners can remove users';
   END IF;
 
-  -- Verify caller's business matches target business
-  IF get_user_business_id(auth.uid()) != _business_id THEN
-    RAISE EXCEPTION 'Cannot assign users to a different business';
+  -- Verify the target user was in caller's business
+  IF get_user_business_id(_user_id) != get_user_business_id(auth.uid()) THEN
+    RAISE EXCEPTION 'Cannot modify users from other businesses';
   END IF;
 
-  -- Update the user's profile
+  -- Clear the business_id
   UPDATE public.profiles
-  SET business_id = _business_id
+  SET business_id = NULL
   WHERE id = _user_id;
 END;
 $$;
 ```
-
-#### Part 2: Frontend - Update InviteUserDialog to Use RPC
-
-Replace the direct profile update with an RPC call:
-
-```typescript
-// Instead of:
-await supabase.from("profiles").update({ business_id: business.id }).eq("id", userId);
-
-// Use:
-await supabase.rpc('assign_user_to_business', {
-  _user_id: userId,
-  _business_id: business.id
-});
-```
-
----
-
-### Immediate Data Fix
-
-Run a one-time SQL to fix existing users with NULL business_id but valid roles:
-
-```sql
-UPDATE profiles p
-SET business_id = ur.business_id
-FROM user_roles ur
-WHERE p.id = ur.user_id
-  AND p.business_id IS NULL
-  AND ur.business_id IS NOT NULL;
-```
-
-This will fix `diego@craftedxi.com` immediately.
 
 ---
 
@@ -119,89 +207,39 @@ This will fix `diego@craftedxi.com` immediately.
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `supabase/migrations/xxx.sql` | Create | Add `assign_user_to_business` RPC function |
-| `src/components/users/InviteUserDialog.tsx` | Modify | Use RPC instead of direct profile update |
+| `supabase/migrations/xxx.sql` | Create | Add `clear_user_business` function |
+| `src/pages/Auth.tsx` | Modify | Add forgot password link and handler |
+| `src/pages/ResetPassword.tsx` | Create | Password reset form page |
+| `src/App.tsx` | Modify | Add `/reset-password` route |
+| `src/pages/UserManagement.tsx` | Modify | Clear business_id on user removal |
 
 ---
 
-### Implementation Details
+### Expected Outcomes
 
-#### Migration SQL
+1. **diego@craftedxi.com** and **diego1205@gmail.com** can:
+   - Go to login page
+   - Click "Forgot Password?"
+   - Receive reset email
+   - Set their real password
+   - Log in successfully
 
-```sql
--- Function to safely assign a user to a business (called by owner during invite)
-CREATE OR REPLACE FUNCTION public.assign_user_to_business(
-  _user_id uuid,
-  _business_id uuid
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-BEGIN
-  -- Verify the caller is an owner
-  IF NOT has_role(auth.uid(), 'owner') THEN
-    RAISE EXCEPTION 'Only business owners can assign users to businesses';
-  END IF;
+2. **When removing a user:**
+   - Their role is deleted
+   - Their `business_id` is cleared
+   - They can be cleanly re-invited to the same or different business
+   - If they try to log in, they see an appropriate message (no business association)
 
-  -- Verify caller belongs to the target business
-  IF get_user_business_id(auth.uid()) != _business_id THEN
-    RAISE EXCEPTION 'Cannot assign users to a different business';
-  END IF;
-
-  -- Update the user's profile with the business_id
-  UPDATE public.profiles
-  SET business_id = _business_id
-  WHERE id = _user_id;
-  
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User profile not found';
-  END IF;
-END;
-$$;
-
--- Fix existing orphaned profiles (users with roles but NULL business_id)
-UPDATE profiles p
-SET business_id = ur.business_id
-FROM user_roles ur
-WHERE p.id = ur.user_id
-  AND p.business_id IS NULL
-  AND ur.business_id IS NOT NULL;
-```
-
-#### InviteUserDialog Changes
-
-Replace both instances of profile update with:
-```typescript
-// For existing user (line 86-91)
-const { error: profileError } = await supabase.rpc('assign_user_to_business', {
-  _user_id: existingUser.id,
-  _business_id: business.id,
-});
-
-// For new user (line 119-122)
-const { error: profileError } = await supabase.rpc('assign_user_to_business', {
-  _user_id: authData.user.id,
-  _business_id: business.id,
-});
-```
+3. **For complete re-addition:**
+   - Removing and re-inviting works seamlessly
+   - No "already a team member" errors for removed users
 
 ---
 
-### Expected Outcome After Fix
+### Supabase Auth Configuration Note
 
-1. **diego@craftedxi.com** will have `business_id` set correctly and can log in to the team
-2. **diego1205@gmail.com** will appear in the Team Management table (already has correct business_id)
-3. Future invitations will correctly set `business_id` via the secure RPC function
-4. Invited users will be routed directly to the app, not onboarding
+For password reset emails to work, ensure the Site URL and Redirect URLs are configured in Supabase:
+- **Authentication > URL Configuration**
+- Site URL: `https://boxcraft-dash.lovable.app`
+- Redirect URLs: Include both preview and production URLs
 
----
-
-### Architecture Note
-
-Yes, businesses are fully separated with their own IDs. This is the multi-tenant SaaS model where:
-- Each business has a unique `id` in the `businesses` table
-- Users are linked to businesses via `profiles.business_id`
-- Roles are scoped to businesses via `user_roles.business_id`
-- RLS policies ensure complete data isolation between businesses
