@@ -21,7 +21,7 @@ import { OrderEditDialog } from "./OrderEditDialog";
 import { OrderCompletionConfirmDialog } from "./OrderCompletionConfirmDialog";
 import { OrderCancellationConfirmDialog } from "./OrderCancellationConfirmDialog";
 import { toast } from "sonner";
-import { Link2, Copy, Check, Pencil, User } from "lucide-react";
+import { Link2, Copy, Check, Pencil, User, CheckCircle2 } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 const statuses: OrderStatus[] = [
@@ -289,8 +289,8 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange }: OrderDetailsDi
               </Select>
             </div>
 
-            {/* Delivery Link Section */}
-            {status === "Ready for Delivery" && (
+            {/* Delivery Link Section - Show when Ready for Delivery and not yet confirmed */}
+            {status === "Ready for Delivery" && !deliveryConfirmation?.confirmed_at && (
               <div className="space-y-2 pt-4 border-t">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
@@ -328,6 +328,40 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange }: OrderDetailsDi
                   >
                     Generate Delivery Link
                   </Button>
+                )}
+              </div>
+            )}
+
+            {/* Delivery Confirmation Details - Show when delivery is confirmed */}
+            {deliveryConfirmation?.confirmed_at && (
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <Label className="text-green-700 font-semibold">Delivery Confirmed</Label>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">
+                    Confirmed on: {new Date(deliveryConfirmation.confirmed_at).toLocaleString()}
+                  </p>
+                  
+                  {deliveryConfirmation.driver_notes && (
+                    <div>
+                      <p className="font-medium">Driver Notes:</p>
+                      <p className="text-muted-foreground">{deliveryConfirmation.driver_notes}</p>
+                    </div>
+                  )}
+                </div>
+                
+                {deliveryConfirmation.delivery_photo_url && (
+                  <div className="space-y-2">
+                    <Label>Delivery Photo</Label>
+                    <img
+                      src={deliveryConfirmation.delivery_photo_url}
+                      alt="Delivery confirmation"
+                      className="rounded-lg border w-full max-h-64 object-cover"
+                    />
+                  </div>
                 )}
               </div>
             )}

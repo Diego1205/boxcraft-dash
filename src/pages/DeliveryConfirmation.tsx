@@ -144,7 +144,7 @@ const DeliveryConfirmation = () => {
       // Upload photo
       const photoUrl = await compressAndUploadPhoto(photoFile);
       
-      // Update delivery confirmation
+      // Update delivery confirmation - trigger will automatically set order status to Completed
       const { error: updateError } = await supabase
         .from("delivery_confirmations")
         .update({
@@ -155,14 +155,6 @@ const DeliveryConfirmation = () => {
         .eq("id", data?.id);
 
       if (updateError) throw updateError;
-
-      // Update order status to Completed
-      const { error: orderError } = await supabase
-        .from("orders")
-        .update({ status: "Completed" })
-        .eq("id", order.id);
-
-      if (orderError) throw orderError;
     },
     onSuccess: () => {
       setIsUploading(false);
