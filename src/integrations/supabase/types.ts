@@ -399,6 +399,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_user_to_business: {
+        Args: { _business_id: string; _user_id: string }
+        Returns: undefined
+      }
       get_user_business_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
