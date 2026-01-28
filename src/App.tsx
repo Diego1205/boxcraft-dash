@@ -13,6 +13,7 @@ import BusinessSettings from "./pages/BusinessSettings";
 import DeliveryConfirmation from "./pages/DeliveryConfirmation";
 import UserManagement from "./pages/UserManagement";
 import DriverDashboard from "./pages/DriverDashboard";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessProvider } from "./contexts/BusinessContext";
@@ -63,6 +64,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<AuthRedirect />} />
               <Route path="/onboarding" element={<BusinessOnboarding />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/delivery/:token" element={<DeliveryConfirmation />} />
               
               {/* Driver-specific route */}
