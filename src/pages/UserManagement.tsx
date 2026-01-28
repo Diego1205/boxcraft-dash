@@ -48,31 +48,38 @@ const UserManagement = () => {
     queryFn: async () => {
       if (!business?.id) return [];
 
-      const { data, error } = await supabase
+      // First get all roles for this business
+      const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
-        .select(`
-          id,
-          user_id,
-          role,
-          created_at,
-          profiles!inner (
-            email,
-            full_name
-          )
-        `)
+        .select("id, user_id, role, created_at")
         .eq("business_id", business.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (rolesError) throw rolesError;
+      if (!roles || roles.length === 0) return [];
 
-      return data.map((item: any) => ({
-        id: item.id,
-        user_id: item.user_id,
-        role: item.role,
-        email: item.profiles.email,
-        full_name: item.profiles.full_name,
-        created_at: item.created_at,
-      })) as TeamMember[];
+      // Then get profiles for those users
+      const userIds = roles.map(r => r.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Merge the data
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      return roles.map((role) => {
+        const profile = profileMap.get(role.user_id);
+        return {
+          id: role.id,
+          user_id: role.user_id,
+          role: role.role,
+          email: profile?.email || "Unknown",
+          full_name: profile?.full_name || "Unknown",
+          created_at: role.created_at,
+        };
+      }) as TeamMember[];
     },
     enabled: !!business?.id,
   });

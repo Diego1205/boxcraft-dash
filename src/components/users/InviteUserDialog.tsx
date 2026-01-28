@@ -82,11 +82,11 @@ export const InviteUserDialog = ({ open, onOpenChange }: InviteUserDialogProps) 
 
         if (roleError) throw roleError;
 
-        // Update their profile with business_id
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ business_id: business.id })
-          .eq("id", existingUser.id);
+        // Update their profile with business_id via secure RPC
+        const { error: profileError } = await supabase.rpc('assign_user_to_business', {
+          _user_id: existingUser.id,
+          _business_id: business.id,
+        });
 
         if (profileError) throw profileError;
       } else {
@@ -115,11 +115,11 @@ export const InviteUserDialog = ({ open, onOpenChange }: InviteUserDialogProps) 
 
         if (roleError) throw roleError;
 
-        // Update profile with business_id
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ business_id: business.id })
-          .eq("id", authData.user.id);
+        // Update profile with business_id via secure RPC
+        const { error: profileError } = await supabase.rpc('assign_user_to_business', {
+          _user_id: authData.user.id,
+          _business_id: business.id,
+        });
 
         if (profileError) throw profileError;
       }
