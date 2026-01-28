@@ -85,21 +85,39 @@ const UserManagement = () => {
   });
 
   const removeUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error } = await supabase
+    mutationFn: async (roleId: string) => {
+      // First get the user_id from the role record
+      const { data: roleData, error: fetchError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("id", roleId)
+        .single();
+
+      if (fetchError || !roleData) throw new Error("Role not found");
+
+      // Delete the role
+      const { error: roleError } = await supabase
         .from("user_roles")
         .delete()
-        .eq("id", userId)
+        .eq("id", roleId)
         .eq("business_id", business?.id);
 
-      if (error) throw error;
+      if (roleError) throw roleError;
+
+      // Clear business_id from profile so they can be re-invited cleanly
+      const { error: clearError } = await supabase.rpc('clear_user_business', {
+        _user_id: roleData.user_id,
+      });
+
+      if (clearError) throw clearError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success("User removed from team");
       setDeleteUserId(null);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Failed to remove user:", error);
       toast.error("Failed to remove user");
     },
   });
@@ -217,7 +235,7 @@ const UserManagement = () => {
             <AlertDialogTitle>Remove User</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to remove this user from your team? They will lose access to
-              all business data.
+              all business data and can be re-invited later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
