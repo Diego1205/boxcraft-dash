@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, LogOut, Settings } from 'lucide-react';
+import { User, LogOut, Settings, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ProfileEditDialog } from '@/components/profile/ProfileEditDialog';
 
 export const Header = () => {
   const { business, profile, isOwner, isAdmin, updateBusiness } = useBusiness();
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -63,6 +66,10 @@ export const Header = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Profile
+              </DropdownMenuItem>
               {isOwner && (
                 <DropdownMenuItem onClick={() => navigate('/business-settings')}>
                   <Settings className="mr-2 h-4 w-4" />
@@ -77,6 +84,8 @@ export const Header = () => {
           </DropdownMenu>
         </div>
       </div>
+
+      <ProfileEditDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
     </header>
   );
 };

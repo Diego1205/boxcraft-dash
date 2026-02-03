@@ -33,6 +33,7 @@ interface TeamMember {
   user_id: string;
   email: string;
   full_name: string;
+  phone_number: string | null;
   role: UserRole;
   created_at: string;
 }
@@ -62,7 +63,7 @@ const UserManagement = () => {
       const userIds = roles.map(r => r.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, email, full_name")
+        .select("id, email, full_name, phone_number")
         .in("id", userIds);
 
       if (profilesError) throw profilesError;
@@ -77,6 +78,7 @@ const UserManagement = () => {
           role: role.role,
           email: profile?.email || "Unknown",
           full_name: profile?.full_name || "Unknown",
+          phone_number: profile?.phone_number || null,
           created_at: role.created_at,
         };
       }) as TeamMember[];
@@ -178,6 +180,7 @@ const UserManagement = () => {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -186,13 +189,13 @@ const UserManagement = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   Loading team members...
                 </TableCell>
               </TableRow>
             ) : teamMembers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No team members yet. Invite users to get started.
                 </TableCell>
               </TableRow>
@@ -201,6 +204,11 @@ const UserManagement = () => {
                 <TableRow key={member.id}>
                   <TableCell className="font-medium">{member.full_name}</TableCell>
                   <TableCell>{member.email}</TableCell>
+                  <TableCell>
+                    {member.phone_number || (
+                      <span className="text-muted-foreground text-xs">Not set</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(member.role)} className="gap-1">
                       {getRoleIcon(member.role)}

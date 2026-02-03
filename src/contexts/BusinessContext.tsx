@@ -15,6 +15,7 @@ interface Profile {
   business_id: string | null;
   full_name: string | null;
   email: string | null;
+  phone_number: string | null;
 }
 
 interface UserRole {
