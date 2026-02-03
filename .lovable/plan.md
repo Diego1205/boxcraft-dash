@@ -1,94 +1,31 @@
 
 
-## Fix Delivery Confirmation Admin Visibility Issues
+## Add Profile Editing with Phone Number Support
 
 ### Problem Summary
 
-| Issue | Symptom | Root Cause |
-|-------|---------|------------|
-| Status not updating | Driver confirms delivery, but order stays "Ready for Delivery" | Public page can't update orders table (RLS blocks unauthenticated users) |
-| Blank screen on order click | Clicking order card title shows blank screen | OrderDetailsDialog lacks delivery confirmation details section for admin visibility |
+Currently there is no way for users (drivers, owners, or admins) to update their profile information such as their name. Additionally, owners/admins cannot see driver contact information (phone numbers) when they need to reach them quickly.
 
 ---
 
-### Root Cause Analysis
+### Solution Overview
 
-**Issue 1: Status Not Updating to "Completed"**
-
-The `DeliveryConfirmation.tsx` page (public, no auth required) tries to update the order:
-
-```typescript
-// Line 159-165 - This FAILS silently!
-const { error: orderError } = await supabase
-  .from("orders")
-  .update({ status: "Completed" })
-  .eq("id", order.id);
-```
-
-The RLS policy on `orders` requires:
-```sql
-USING (business_id = get_user_business_id(auth.uid()) 
-       AND (has_role(auth.uid(), 'owner') OR has_role(auth.uid(), 'admin')))
-```
-
-Since drivers use the public link without authentication, `auth.uid()` is NULL, and **RLS silently rejects the update**. The `delivery_confirmations` table gets updated successfully (it has a public policy for token-based updates), but the order status never changes.
-
-**Database Evidence:**
-- Order `ac90f574-7d9b-407f-a6e6-ffd30bcc7641` has status = "Ready for Delivery"  
-- Delivery confirmation exists with `confirmed_at = 2026-01-28 03:02:40`
-- Photo uploaded successfully to storage
-
-**Issue 2: Blank Screen / No Admin Visibility**
-
-The `OrderDetailsDialog.tsx` shows delivery confirmation link generation only when status is "Ready for Delivery" (line 293), but once a delivery is confirmed:
-- There's no section showing the confirmation details (photo, notes, timestamp)
-- Admins have no way to see that delivery was confirmed or view the photo
-- The dialog may also fail if required context is missing
+| Feature | Description |
+|---------|-------------|
+| Profile editing | All users can edit their name and phone number via user menu |
+| Phone number field | New optional field added to profiles table |
+| Driver visibility | Team Management table shows phone numbers for quick access |
 
 ---
 
-### Solution: Database Trigger + Admin UI Enhancement
+### Database Changes
 
-#### Part 1: Database - Auto-Update Order Status via Trigger
-
-Instead of relying on the public page to update the order (which RLS blocks), create a database trigger that automatically updates the order status when a delivery confirmation is completed.
+Add `phone_number` column to the `profiles` table:
 
 ```sql
-CREATE OR REPLACE FUNCTION public.complete_order_on_delivery_confirmation()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-BEGIN
-  -- When delivery is confirmed (confirmed_at is set), update order status
-  IF NEW.confirmed_at IS NOT NULL AND OLD.confirmed_at IS NULL THEN
-    UPDATE public.orders
-    SET status = 'Completed'
-    WHERE id = NEW.order_id
-      AND status != 'Completed';  -- Don't update if already completed
-  END IF;
-  
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER on_delivery_confirmed
-  AFTER UPDATE ON public.delivery_confirmations
-  FOR EACH ROW
-  EXECUTE FUNCTION complete_order_on_delivery_confirmation();
+ALTER TABLE public.profiles
+ADD COLUMN phone_number text;
 ```
-
-This bypasses RLS via `SECURITY DEFINER` and runs automatically when the delivery confirmation is updated.
-
-#### Part 2: Frontend - Add Delivery Confirmation Details to OrderDetailsDialog
-
-Enhance the dialog to show delivery confirmation details for admins:
-
-- Show delivery photo when available
-- Show confirmation timestamp
-- Show driver notes
-- Display confirmed status badge
 
 ---
 
@@ -96,139 +33,136 @@ Enhance the dialog to show delivery confirmation details for admins:
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `supabase/migrations/xxx.sql` | Create | Add trigger to auto-complete orders on delivery confirmation |
-| `src/components/orders/OrderDetailsDialog.tsx` | Modify | Add section showing delivery confirmation details (photo, timestamp, notes) |
-| `src/pages/DeliveryConfirmation.tsx` | Modify | Remove the direct order update (now handled by trigger) |
+| `supabase/migrations/xxx.sql` | Create | Add `phone_number` column to profiles |
+| `src/components/profile/ProfileEditDialog.tsx` | Create | Dialog for editing name and phone number |
+| `src/components/layout/Header.tsx` | Modify | Add "Edit Profile" menu item for all users |
+| `src/contexts/BusinessContext.tsx` | Modify | Add `updateProfile` function and phone to interface |
+| `src/pages/UserManagement.tsx` | Modify | Display phone number column in team table |
 
 ---
 
 ### Technical Implementation
 
-#### Migration: Auto-Complete Trigger
+#### 1. Migration - Add Phone Number Column
 
 ```sql
--- Trigger function to automatically mark order as Completed when delivery is confirmed
-CREATE OR REPLACE FUNCTION public.complete_order_on_delivery_confirmation()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-BEGIN
-  -- Only trigger when confirmed_at changes from NULL to a value
-  IF NEW.confirmed_at IS NOT NULL AND (OLD.confirmed_at IS NULL) THEN
-    UPDATE public.orders
-    SET status = 'Completed'
-    WHERE id = NEW.order_id
-      AND status != 'Completed'
-      AND status != 'Cancelled';
-  END IF;
-  
-  RETURN NEW;
-END;
-$$;
+ALTER TABLE public.profiles
+ADD COLUMN phone_number text;
 
--- Create the trigger
-CREATE TRIGGER on_delivery_confirmed
-  AFTER UPDATE ON public.delivery_confirmations
-  FOR EACH ROW
-  EXECUTE FUNCTION complete_order_on_delivery_confirmation();
-
--- Also fix the existing confirmed delivery that didn't update
-UPDATE orders 
-SET status = 'Completed' 
-WHERE id IN (
-  SELECT order_id FROM delivery_confirmations 
-  WHERE confirmed_at IS NOT NULL
-)
-AND status != 'Completed'
-AND status != 'Cancelled';
+COMMENT ON COLUMN public.profiles.phone_number IS 'Optional contact phone number';
 ```
 
-#### OrderDetailsDialog Enhancement
+#### 2. ProfileEditDialog Component
 
-Add a new section after the existing content to display confirmation details:
+Create a new dialog component accessible from the header dropdown:
 
 ```tsx
-{/* Delivery Confirmation Details */}
-{deliveryConfirmation?.confirmed_at && (
-  <div className="space-y-3 pt-4 border-t">
-    <div className="flex items-center gap-2">
-      <CheckCircle2 className="h-5 w-5 text-green-600" />
-      <Label className="text-green-700 font-semibold">Delivery Confirmed</Label>
-    </div>
-    
-    <div className="space-y-2 text-sm">
-      <p className="text-muted-foreground">
-        Confirmed on: {new Date(deliveryConfirmation.confirmed_at).toLocaleString()}
-      </p>
-      
-      {deliveryConfirmation.driver_notes && (
-        <div>
-          <p className="font-medium">Driver Notes:</p>
-          <p className="text-muted-foreground">{deliveryConfirmation.driver_notes}</p>
-        </div>
-      )}
-    </div>
-    
-    {deliveryConfirmation.delivery_photo_url && (
-      <div className="space-y-2">
-        <Label>Delivery Photo</Label>
-        <img
-          src={deliveryConfirmation.delivery_photo_url}
-          alt="Delivery confirmation"
-          className="rounded-lg border w-full max-h-64 object-cover"
-        />
-      </div>
-    )}
-  </div>
-)}
+// Key features:
+- Form with full_name and phone_number fields
+- Phone number validation (optional, but validate format if provided)
+- Uses supabase to update own profile (allowed by existing RLS)
+- Invalidates profile query on success
 ```
 
-#### DeliveryConfirmation.tsx Cleanup
+#### 3. Header.tsx - Add Edit Profile Option
 
-Remove the unnecessary order update since the trigger now handles it:
+Add menu item between user info and Business Settings:
 
-```typescript
-// REMOVE these lines (159-165):
-// const { error: orderError } = await supabase
-//   .from("orders")
-//   .update({ status: "Completed" })
-//   .eq("id", order.id);
-// if (orderError) throw orderError;
+```tsx
+<DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+  <Pencil className="mr-2 h-4 w-4" />
+  Edit Profile
+</DropdownMenuItem>
+```
+
+This will be available to ALL users (drivers, admins, owners).
+
+#### 4. BusinessContext Updates
+
+Update the Profile interface and add updateProfile function:
+
+```tsx
+interface Profile {
+  id: string;
+  business_id: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone_number: string | null;  // NEW
+}
+
+// Add updateProfile mutation
+const updateProfileMutation = useMutation({
+  mutationFn: async (data: Partial<Profile>) => {
+    if (!profile) throw new Error('No profile found');
+    const { error } = await supabase
+      .from('profiles')
+      .update(data)
+      .eq('id', profile.id);
+    if (error) throw error;
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['profile'] });
+  },
+});
+```
+
+#### 5. UserManagement - Show Phone Numbers
+
+Add phone column to team members table:
+
+```tsx
+// Update TeamMember interface
+interface TeamMember {
+  // ... existing fields
+  phone_number: string | null;  // NEW
+}
+
+// Update query to fetch phone
+.select("id, email, full_name, phone_number")
+
+// Add column to table
+<TableHead>Phone</TableHead>
+
+// Display in row
+<TableCell>
+  {member.phone_number || (
+    <span className="text-muted-foreground text-xs">Not set</span>
+  )}
+</TableCell>
+```
+
+---
+
+### UI Flow
+
+```text
+User clicks profile icon (header)
+       ↓
+Dropdown shows "Edit Profile" option
+       ↓
+Dialog opens with current name & phone
+       ↓
+User edits fields → saves
+       ↓
+Profile updated, header reflects new name
+```
+
+For owners viewing team:
+
+```text
+Owner opens Team Management
+       ↓
+Table shows Name, Email, Phone, Role, Joined, Actions
+       ↓
+Owner can quickly see driver phone numbers
 ```
 
 ---
 
 ### Expected Outcomes
 
-1. **Automatic Status Update**: When a driver confirms delivery via the public link, the database trigger automatically updates the order to "Completed" (including triggering inventory deduction)
-
-2. **Admin Visibility**: Business owners/admins can:
-   - See that a delivery was confirmed
-   - View the exact confirmation timestamp
-   - Read driver notes
-   - View the delivery photo
-
-3. **Existing Data Fix**: The migration includes a one-time fix to mark the already-confirmed delivery as "Completed"
-
----
-
-### Flow After Fix
-
-```text
-Driver clicks delivery link
-       ↓
-Uploads photo + notes
-       ↓
-delivery_confirmations table updated (confirmed_at set)
-       ↓
-Trigger fires: complete_order_on_delivery_confirmation()
-       ↓
-Order status automatically set to "Completed"
-       ↓
-Inventory deduction trigger fires (on_order_completed)
-       ↓
-Admin opens order → sees green "Delivery Confirmed" section with photo
-```
+1. **All users** can update their name and phone number from the header menu
+2. **Owners/admins** can see team member phone numbers in the Team Management table
+3. **Drivers** can add their phone number so business owners can contact them
+4. Profile changes reflect immediately in the header
 
