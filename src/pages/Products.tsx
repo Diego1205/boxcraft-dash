@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { ProductList } from "@/components/products/ProductList";
 import { ProductDialog } from "@/components/products/ProductDialog";
+import { ProductFilters } from "@/components/products/ProductFilters";
 import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 
@@ -20,6 +21,7 @@ const Products = () => {
   const { business } = useBusiness();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -36,6 +38,14 @@ const Products = () => {
     },
     enabled: !!business?.id,
   });
+
+  const filteredProducts = useMemo(() => {
+    if (!search) return products;
+    const searchLower = search.toLowerCase();
+    return products.filter((product) =>
+      product.name.toLowerCase().includes(searchLower)
+    );
+  }, [products, search]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -84,8 +94,15 @@ const Products = () => {
         </Button>
       </div>
 
+      <ProductFilters
+        search={search}
+        onSearchChange={setSearch}
+        totalCount={products.length}
+        filteredCount={filteredProducts.length}
+      />
+
       <ProductList
-        products={products}
+        products={filteredProducts}
         isLoading={isLoading}
         onEdit={handleEdit}
         onDelete={handleDelete}

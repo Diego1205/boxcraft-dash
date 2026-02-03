@@ -9,6 +9,7 @@ import { InventoryFilters, InventoryFiltersState, StockStatus } from "@/componen
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
 import { BudgetCard } from "@/components/inventory/BudgetCard";
 import { toast } from "sonner";
+import { useBusiness } from "@/contexts/BusinessContext";
 
 export interface InventoryItem {
   id: string;
@@ -33,28 +34,25 @@ const Inventory = () => {
   });
   const queryClient = useQueryClient();
 
+  const { business } = useBusiness();
+
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["inventory-items"],
+    queryKey: ["inventory-items", business?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!business?.id) return [];
 
       const { data, error } = await supabase
         .from("inventory_items")
         .select("id, name, quantity, unit_cost, total_cost, image_url, business_id, reorder_level, category")
+        .eq("business_id", business.id)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       
-      // Filter out any items without required fields or business_id
-      const validItems = (data || []).filter(item => 
-        item.id && 
-        item.name && 
-        item.business_id !== null
-      );
-      
-      return validItems as InventoryItem[];
+      if (error) throw error;
+      return (data || []) as InventoryItem[];
     },
+    enabled: !!business?.id,
   });
 
   // Query to get usage for filtering

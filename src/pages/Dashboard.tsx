@@ -46,15 +46,16 @@ const Dashboard = () => {
       if (!business) return null;
       const { data, error } = await supabase
         .from('orders')
-        .select('status, sale_price')
+        .select('status, sale_price, created_at')
         .eq('business_id', business.id);
       
       if (error) throw error;
       const activeOrders = data.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
       const thisMonth = new Date();
       thisMonth.setDate(1);
+      thisMonth.setHours(0, 0, 0, 0);
       const monthlyRevenue = data
-        .filter(o => o.status === 'Completed')
+        .filter(o => o.status === 'Completed' && new Date(o.created_at) >= thisMonth)
         .reduce((sum, order) => sum + (Number(order.sale_price) || 0), 0);
       
       return { activeOrders, monthlyRevenue, totalOrders: data.length };

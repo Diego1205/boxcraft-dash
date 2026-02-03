@@ -46,12 +46,17 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
   const queryClient = useQueryClient();
 
   const { data: products = [] } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products", business?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*");
+      if (!business?.id) return [];
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("business_id", business.id);
       if (error) throw error;
       return data;
     },
+    enabled: !!business?.id,
   });
 
   const selectedProduct = products.find((p) => p.id === productId);
