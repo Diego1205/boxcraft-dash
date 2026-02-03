@@ -205,7 +205,14 @@ const UserManagement = () => {
                   <TableCell className="font-medium">{member.full_name}</TableCell>
                   <TableCell>{member.email}</TableCell>
                   <TableCell>
-                    {member.phone_number || (
+                    {member.phone_number ? (
+                      <a 
+                        href={`tel:${member.phone_number}`} 
+                        className="text-primary hover:underline"
+                      >
+                        {member.phone_number}
+                      </a>
+                    ) : (
                       <span className="text-muted-foreground text-xs">Not set</span>
                     )}
                   </TableCell>

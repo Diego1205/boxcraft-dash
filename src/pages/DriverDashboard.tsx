@@ -29,9 +29,9 @@ export default function DriverDashboard() {
   const { user } = useAuth();
 
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["driver-orders", business?.id],
+    queryKey: ["driver-orders", business?.id, user?.id],
     queryFn: async () => {
-      if (!business?.id) return [];
+      if (!business?.id || !user?.id) return [];
 
       const { data, error } = await supabase
         .from("orders")
@@ -50,13 +50,14 @@ export default function DriverDashboard() {
           )
         `)
         .eq("business_id", business.id)
+        .eq("assigned_driver_id", user.id)
         .in("status", ["Ready for Delivery", "Completed"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as OrderWithDelivery[];
     },
-    enabled: !!business?.id,
+    enabled: !!business?.id && !!user?.id,
   });
 
   const pendingDeliveries = orders?.filter(o => o.status === "Ready for Delivery") || [];
