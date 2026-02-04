@@ -426,7 +426,15 @@ export type Database = {
     }
     Enums: {
       app_role: "owner" | "admin" | "driver"
-      currency_type: "USD" | "CAD" | "PEN"
+      currency_type:
+        | "USD"
+        | "CAD"
+        | "PEN"
+        | "EUR"
+        | "GBP"
+        | "MXN"
+        | "BRL"
+        | "COP"
       order_status:
         | "New Inquiry"
         | "In Progress"
@@ -562,7 +570,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["owner", "admin", "driver"],
-      currency_type: ["USD", "CAD", "PEN"],
+      currency_type: ["USD", "CAD", "PEN", "EUR", "GBP", "MXN", "BRL", "COP"],
       order_status: [
         "New Inquiry",
         "In Progress",
