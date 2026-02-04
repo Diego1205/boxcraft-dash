@@ -8,11 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { AlertTriangle } from 'lucide-react';
+import { currencies, getCurrencySymbol, CurrencyType } from '@/lib/currencies';
 
 const BusinessSettings = () => {
   const { business, updateBusiness, isOwner } = useBusiness();
   const [businessName, setBusinessName] = useState(business?.name || '');
-  const [currency, setCurrency] = useState<'USD' | 'CAD' | 'PEN'>(business?.currency || 'USD');
+  const [currency, setCurrency] = useState<CurrencyType>((business?.currency as CurrencyType) || 'USD');
   const [loading, setLoading] = useState(false);
 
   if (!isOwner) {
@@ -27,15 +28,6 @@ const BusinessSettings = () => {
     );
   }
 
-  const getCurrencySymbol = (curr: string) => {
-    switch (curr) {
-      case 'USD': return '$';
-      case 'CAD': return 'C$';
-      case 'PEN': return 'S/';
-      default: return '$';
-    }
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -43,7 +35,7 @@ const BusinessSettings = () => {
     try {
       await updateBusiness({
         name: businessName,
-        currency,
+        currency: currency as any,
         currency_symbol: getCurrencySymbol(currency),
       });
       toast.success('Business settings updated successfully');
@@ -81,14 +73,16 @@ const BusinessSettings = () => {
 
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={(value: any) => setCurrency(value)}>
+              <Select value={currency} onValueChange={(value: CurrencyType) => setCurrency(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">US Dollar ($)</SelectItem>
-                  <SelectItem value="CAD">Canadian Dollar (C$)</SelectItem>
-                  <SelectItem value="PEN">Peruvian Sol (S/)</SelectItem>
+                  {currencies.map((curr) => (
+                    <SelectItem key={curr.value} value={curr.value}>
+                      {curr.label} ({curr.symbol})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               

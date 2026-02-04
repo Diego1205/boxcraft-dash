@@ -2,11 +2,12 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { getCurrencySymbol } from '@/lib/currencies';
 
 interface Business {
   id: string;
   name: string;
-  currency: 'USD' | 'CAD' | 'PEN';
+  currency: string;
   currency_symbol: string;
 }
 
@@ -89,7 +90,7 @@ export const BusinessProvider = ({ children }: { children: ReactNode }) => {
       if (!business) throw new Error('No business found');
       const { error } = await supabase
         .from('businesses')
-        .update(data)
+        .update(data as any)
         .eq('id', business.id);
       if (error) throw error;
     },

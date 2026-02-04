@@ -8,22 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { currencies, getCurrencySymbol, CurrencyType } from '@/lib/currencies';
 
 const BusinessOnboarding = () => {
   const [businessName, setBusinessName] = useState('');
-  const [currency, setCurrency] = useState<'USD' | 'CAD' | 'PEN'>('USD');
+  const [currency, setCurrency] = useState<CurrencyType>('USD');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  const getCurrencySymbol = (curr: string) => {
-    switch (curr) {
-      case 'USD': return '$';
-      case 'CAD': return 'C$';
-      case 'PEN': return 'S/';
-      default: return '$';
-    }
-  };
 
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,14 +64,16 @@ const BusinessOnboarding = () => {
             
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={(value: 'USD' | 'CAD' | 'PEN') => setCurrency(value)}>
+              <Select value={currency} onValueChange={(value: CurrencyType) => setCurrency(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">US Dollar ($)</SelectItem>
-                  <SelectItem value="CAD">Canadian Dollar (C$)</SelectItem>
-                  <SelectItem value="PEN">Peruvian Sol (S/)</SelectItem>
+                  {currencies.map((curr) => (
+                    <SelectItem key={curr.value} value={curr.value}>
+                      {curr.label} ({curr.symbol})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

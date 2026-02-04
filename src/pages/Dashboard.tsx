@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { Package, Box, ShoppingCart, DollarSign, AlertTriangle } from 'lucide-react';
 import { BudgetCard } from '@/components/inventory/BudgetCard';
+import { GettingStartedChecklist } from '@/components/onboarding/GettingStartedChecklist';
 
 const Dashboard = () => {
   const { business, formatCurrency } = useBusiness();
@@ -139,6 +140,8 @@ const Dashboard = () => {
         <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground mt-2">Overview of your business operations</p>
       </div>
+
+      <GettingStartedChecklist />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

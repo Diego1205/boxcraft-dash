@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Package } from 'lucide-react';
+import { EmailConfirmationScreen } from '@/components/auth/EmailConfirmationScreen';
 import { z } from 'zod';
 
 const signInSchema = z.object({
@@ -39,6 +40,8 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+  const [signupEmail, setSignupEmail] = useState('');
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -81,7 +84,8 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Account created! Please check your email to verify your account.');
+      setSignupEmail(validationResult.data.email);
+      setShowEmailConfirmation(true);
     }
   };
 
@@ -108,6 +112,22 @@ const Auth = () => {
       setResetEmail('');
     }
   };
+
+  if (showEmailConfirmation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <EmailConfirmationScreen
+          email={signupEmail}
+          onBack={() => {
+            setShowEmailConfirmation(false);
+            setEmail('');
+            setPassword('');
+            setFullName('');
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
