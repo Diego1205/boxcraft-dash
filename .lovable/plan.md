@@ -1,262 +1,141 @@
+## Rebrand to KhipuFlow + Landing Page Content Package
+
+### Part 1: Rebranding (Code Changes)
+
+All references to "GiftBox Manager" will be updated across the codebase:
 
 
-## Business Onboarding Review: Analysis and Improvements
+| File                                                    | Change                              |
+| ------------------------------------------------------- | ----------------------------------- |
+| `index.html`                                            | Update `<title>` tag                |
+| `src/pages/Index.tsx`                                   | Update hero title and description   |
+| `src/components/layout/Header.tsx`                      | Update fallback business name       |
+| `src/pages/BusinessOnboarding.tsx`                      | Update welcome text and placeholder |
+| `src/components/onboarding/GettingStartedChecklist.tsx` | Update any branding references      |
 
-### Current Onboarding Flow Assessment
+
+---
+
+### Part 2: Landing Page Content Guide
+
+Below is a curated content structure for your landing page -- concise enough to avoid saturation, comprehensive enough to convey value.
+
+---
+
+#### Tagline Options
+
+- "Streamline Your Gift Box Business, End to End."
+- "From Inventory to Delivery -- All in One Flow."
+
+#### One-Liner Description
+
+> KhipuFlow is the all-in-one operations platform for gift box businesses. Manage inventory, build products, track orders, coordinate deliveries, and monitor revenue -- from a single dashboard.
+
+---
+
+#### Core Features (Currently Live)
+
+These are the "hero" features for the landing page -- recommend showing 4-6 max with icons.
+
+
+| Feature              | Short Description                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| Real-Time Dashboard  | See total inventory value, active orders, monthly revenue, and low-stock alerts at a glance        |
+| Inventory Management | Track items with costs, quantities, images, categories, reorder alerts, and budget monitoring      |
+| Product Builder      | Assemble gift boxes from inventory items with automatic cost calculation and profit margin pricing |
+| Order Kanban Board   | Drag-and-drop order tracking through 6 stages: New Inquiry to Completed                            |
+| Delivery Workflow    | Assign drivers, generate confirmation links, capture delivery photos with GPS timestamps           |
+| Team Management      | Invite admins and drivers with role-based access control                                           |
+
+
+---
+
+#### Secondary Features (Mention briefly, perhaps in a "Why KhipuFlow?" section)
+
+
+| Feature                | One-Liner                                                           |
+| ---------------------- | ------------------------------------------------------------------- |
+| Multi-Currency Support | Operate in USD, EUR, GBP, PEN, MXN, BRL, COP, or CAD                |
+| Budget Tracking        | Set and monitor monthly purchasing budgets                          |
+| Low Stock Alerts       | Automatic warnings when inventory drops below reorder levels        |
+| Driver Dashboard       | Dedicated mobile-friendly view for delivery drivers                 |
+| Photo Delivery Proof   | Drivers upload proof-of-delivery photos directly from their phone   |
+| Guided Onboarding      | Step-by-step checklist to get new businesses operational in minutes |
+
+
+---
+
+#### "Coming Soon" Features (Future Roadmap -- for a teaser section)
+
+
+| Feature                       | Description                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Analytics and Reports         | Revenue trends, best-selling products, and seasonal insights with visual charts |
+| CSV Data Export               | Export inventory, orders, and financial data for accounting                     |
+| Customer Database             | Save repeat client info for faster order creation                               |
+| Order History and Audit Trail | Full timeline of status changes with timestamps                                 |
+| Custom Email Notifications    | Automated alerts for order updates and delivery confirmations                   |
+| Dark Mode                     | Light and dark theme toggle                                                     |
+
+
+---
+
+#### Suggested Pricing Tiers
+
+
+| Tier | Name     | Target                                  | Suggested Inclusions                                                                                |
+| ---- | -------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Free | Starter  | Solo entrepreneurs testing the platform | 1 user, up to 50 inventory items, up to 20 orders/month, basic dashboard                            |
+| Paid | Growth   | Small teams actively fulfilling orders  | Up to 5 users, unlimited inventory and orders, delivery workflow, budget tracking, priority support |
+| Paid | Business | Established operations with drivers     | Unlimited users, all features, analytics (when available), CSV export, dedicated onboarding support |
+
+
+Note: Pricing amounts are not included since those are a business decision. The tiers are structured around natural usage limits that align with team size and operational scale.
+
+---
+
+#### Landing Page Section Structure (Recommended Flow)
 
 ```text
-User Journey (New Business Owner)
-┌─────────────────────────────────────────────────────────────────────┐
-│  1. Sign Up (/auth)                                                 │
-│     └─> Email: ✓ | Password: ✓ | Full Name: ✓                      │
-│                                                                     │
-│  2. Email Verification                                              │
-│     └─> "Check your email to verify your account"                   │
-│     └─> User clicks link in email                                   │
-│                                                                     │
-│  3. Sign In                                                         │
-│     └─> Redirected to / (Dashboard)                                 │
-│     └─> ProtectedRoute checks business_id                           │
-│                                                                     │
-│  4. Business Setup (/onboarding)                                    │
-│     └─> Business Name: ✓ | Currency: ✓                             │
-│     └─> RPC: onboard_business() creates business + owner role       │
-│                                                                     │
-│  5. Dashboard (Empty)                                               │
-│     └─> No guidance on next steps                                   │
-└─────────────────────────────────────────────────────────────────────┘
-```
+1. Hero
+   - Tagline + one-liner + CTA ("Get Started Free")
+   - App screenshot or mockup
 
-### What's Working Well
+2. Core Features (4-6 cards with icons)
+   - Dashboard, Inventory, Products, Orders, Delivery, Team
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Sign Up/In Forms | Good | Zod validation, clear error messages |
-| Email Verification | Good | Redirects properly after confirmation |
-| Business Creation | Good | Atomic RPC prevents partial states |
-| Role Assignment | Good | Owner role created automatically |
-| Budget Initialization | Good | Default budget created during onboarding |
-| Password Reset | Good | Full flow with confirmation UI |
-| Protected Routes | Good | Proper auth + business checks |
+3. How It Works (3 steps)
+   - Step 1: Set up your business (name + currency)
+   - Step 2: Add inventory and build products
+   - Step 3: Track orders and deliver
 
----
+4. Why KhipuFlow? (Secondary features as bullet list)
+   - Multi-currency, budget tracking, low-stock alerts, etc.
 
-### Issues Found
+5. Coming Soon (Roadmap teaser)
+   - 3-4 upcoming features with "notify me" option
 
-#### Issue 1: Post-Signup UX Gap (Medium)
+6. Pricing (When ready)
+   - Starter / Growth / Business tiers
 
-**Problem:** After signing up, user sees a toast message but no clear next steps:
-```tsx
-toast.success('Account created! Please check your email to verify your account.');
-// Then what? User stays on same page with no indication
-```
-
-**Impact:** Users may not realize they need to verify email or may get confused waiting.
-
-**Fix:** Show a dedicated "Check Your Email" screen after signup with:
-- Clear instructions
-- Resend verification email option
-- Timer showing when they can resend
-
----
-
-#### Issue 2: Empty Dashboard After Onboarding (Medium)
-
-**Problem:** New users land on an empty dashboard with zero data and no guidance.
-
-**Current State:**
-- "No orders yet" message
-- All stats show 0
-- No indication of what to do next
-
-**Fix:** Add a "Getting Started" checklist that appears for new businesses:
-- [ ] Add your first inventory item
-- [ ] Create a product
-- [ ] Create your first order
-- [ ] Invite a team member
-
----
-
-#### Issue 3: Limited Currency Options (Low)
-
-**Current:** Only 3 currencies (USD, CAD, PEN)
-
-**Missing Common Currencies:**
-- EUR (Euro)
-- GBP (British Pound)
-- MXN (Mexican Peso)
-- BRL (Brazilian Real)
-- COP (Colombian Peso)
-
----
-
-#### Issue 4: No Business Branding Options (Low)
-
-**Missing:**
-- Business logo upload
-- Contact information (address, phone, website)
-- Business type/category
-
----
-
-#### Issue 5: Invited Team Member Flow Confusion (Medium)
-
-**Current Flow for Invited Users:**
-1. Owner invites user with email + temp password
-2. User receives Supabase default email
-3. User must figure out they need to set password
-4. No customized welcome or onboarding for team members
-
-**Problem:** The email template is generic Supabase default, and invited users don't know what to expect.
-
----
-
-### Recommended Improvements
-
-#### Phase 1: Quick Wins (Can implement now)
-
-| Improvement | Description | Priority |
-|-------------|-------------|----------|
-| Post-signup confirmation screen | Show dedicated "verify email" UI instead of toast | High |
-| Getting Started checklist | Guide new users through first steps | High |
-| Add more currencies | EUR, GBP, MXN, BRL, COP | Medium |
-| Resend verification email | Button on auth page for unverified users | Medium |
-
-#### Phase 2: Enhanced Onboarding (Future)
-
-| Improvement | Description | Priority |
-|-------------|-------------|----------|
-| Multi-step onboarding wizard | Business info → Team setup → First product | Medium |
-| Business logo upload | Storage bucket for business logos | Low |
-| Custom email templates | Branded emails for verification/invites | Medium |
-| Team member welcome flow | Dedicated onboarding for invited users | Medium |
-
----
-
-### Implementation Plan
-
-#### 1. Post-Signup Confirmation Screen
-
-Create a new state in `Auth.tsx` that shows after successful signup:
-
-```tsx
-// New state to track signup success
-const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
-const [signupEmail, setSignupEmail] = useState('');
-
-// After successful signup
-setSignupEmail(email);
-setShowEmailConfirmation(true);
-
-// Render confirmation screen
-{showEmailConfirmation && (
-  <Card>
-    <CardHeader>
-      <Mail className="h-12 w-12 text-primary mx-auto" />
-      <CardTitle>Check Your Email</CardTitle>
-      <CardDescription>
-        We sent a verification link to {signupEmail}
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <p>Click the link in your email to verify your account.</p>
-      <Button onClick={handleResendEmail}>Resend Email</Button>
-      <Button variant="link" onClick={() => setShowEmailConfirmation(false)}>
-        Back to Sign In
-      </Button>
-    </CardContent>
-  </Card>
-)}
-```
-
-#### 2. Getting Started Checklist Component
-
-Create `src/components/onboarding/GettingStartedChecklist.tsx`:
-
-```tsx
-interface ChecklistItem {
-  id: string;
-  label: string;
-  completed: boolean;
-  link: string;
-}
-
-// Query to check completion status
-const checklistItems = [
-  { id: 'inventory', label: 'Add your first inventory item', completed: hasInventory, link: '/inventory' },
-  { id: 'product', label: 'Create a product', completed: hasProducts, link: '/products' },
-  { id: 'order', label: 'Create your first order', completed: hasOrders, link: '/orders' },
-  { id: 'team', label: 'Invite a team member', completed: hasTeam, link: '/team' },
-];
-```
-
-Display on Dashboard when any item is incomplete.
-
-#### 3. Add More Currencies
-
-Update the currency enum in database and frontend:
-
-```sql
--- Migration to add more currency options
-ALTER TYPE currency_type ADD VALUE IF NOT EXISTS 'EUR';
-ALTER TYPE currency_type ADD VALUE IF NOT EXISTS 'GBP';
-ALTER TYPE currency_type ADD VALUE IF NOT EXISTS 'MXN';
-ALTER TYPE currency_type ADD VALUE IF NOT EXISTS 'BRL';
-ALTER TYPE currency_type ADD VALUE IF NOT EXISTS 'COP';
-```
-
-Update `BusinessOnboarding.tsx` and `BusinessSettings.tsx`:
-```tsx
-const currencies = [
-  { value: 'USD', label: 'US Dollar', symbol: '$' },
-  { value: 'CAD', label: 'Canadian Dollar', symbol: 'C$' },
-  { value: 'EUR', label: 'Euro', symbol: '€' },
-  { value: 'GBP', label: 'British Pound', symbol: '£' },
-  { value: 'MXN', label: 'Mexican Peso', symbol: 'MX$' },
-  { value: 'PEN', label: 'Peruvian Sol', symbol: 'S/' },
-  { value: 'BRL', label: 'Brazilian Real', symbol: 'R$' },
-  { value: 'COP', label: 'Colombian Peso', symbol: 'COL$' },
-];
+7. CTA Footer
+   - "Start managing your gift box business today"
+   - Sign up button
 ```
 
 ---
 
-### Files to Create/Modify
+### Implementation Scope
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/pages/Auth.tsx` | Modify | Add email confirmation screen after signup |
-| `src/components/onboarding/GettingStartedChecklist.tsx` | Create | Checklist component for new businesses |
-| `src/pages/Dashboard.tsx` | Modify | Show Getting Started checklist for new users |
-| `supabase/migrations/xxx.sql` | Create | Add new currency enum values |
-| `src/pages/BusinessOnboarding.tsx` | Modify | Add more currency options |
-| `src/pages/BusinessSettings.tsx` | Modify | Add more currency options |
+The code changes for this task are limited to rebranding only (replacing "GiftBox Manager" with "KhipuFlow"). The landing page content above is a reference document for when you build the actual landing page -- no landing page code will be created in this task.
 
----
+### Files to Modify
 
-### Additional Missing Features (For Future Consideration)
 
-| Feature | Description | Complexity |
-|---------|-------------|------------|
-| Dark mode toggle | Theme switcher in header | Low |
-| Data export | CSV export for orders, inventory | Medium |
-| Order history/audit | Track status changes with timestamps | Medium |
-| Customer database | Store repeat client information | High |
-| Analytics charts | Visual revenue/order trends | Medium |
-| Mobile PWA | Better mobile experience for drivers | High |
-
----
-
-### Summary
-
-The current onboarding flow is **functionally complete** but has **UX gaps** that can confuse new users:
-
-1. **After signup** - No clear guidance on email verification
-2. **After business creation** - Empty dashboard with no next steps
-3. **Limited options** - Only 3 currencies, no branding
-
-**Recommended immediate actions:**
-1. Add post-signup email confirmation screen
-2. Add Getting Started checklist on Dashboard
-3. Expand currency options
-
+| File                               | Change                                                  |
+| ---------------------------------- | ------------------------------------------------------- |
+| `index.html`                       | Title to "KhipuFlow"                                    |
+| `src/pages/Index.tsx`              | Hero text: "Welcome to KhipuFlow" + updated description |
+| `src/components/layout/Header.tsx` | Fallback name: "KhipuFlow"                              |
+| `src/pages/BusinessOnboarding.tsx` | "Welcome to KhipuFlow!"                                 |
+| `public/robots.txt`                | Update if it contains old branding                      |
