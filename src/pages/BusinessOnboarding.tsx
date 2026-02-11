@@ -45,7 +45,7 @@ const BusinessOnboarding = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome to GiftBox Manager!</CardTitle>
+          <CardTitle>Welcome to KhipuFlow!</CardTitle>
           <CardDescription>Let's set up your business</CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,7 +55,7 @@ const BusinessOnboarding = () => {
               <Input
                 id="businessName"
                 type="text"
-                placeholder="My GiftBox Store"
+                placeholder="My Business Name"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 required
