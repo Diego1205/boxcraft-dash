@@ -17,7 +17,7 @@ export const TabNavigation = () => {
     { to: '/orders', label: 'Orders', icon: ShoppingCart },
     { to: '/inventory', label: 'Inventory', icon: Package },
     { to: '/products', label: 'Products', icon: Box },
-    ...(isOwner || isAdmin ? [{ to: '/team', label: 'Team', icon: Users }] : []),
+    ...(isOwner ? [{ to: '/team', label: 'Team', icon: Users }] : []),
   ];
 
   return (

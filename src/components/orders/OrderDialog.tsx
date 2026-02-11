@@ -104,57 +104,10 @@ export const OrderDialog = ({ open, onOpenChange }: OrderDialogProps) => {
 
       if (orderError) throw orderError;
 
-      // Get product components
-      const { data: components, error: componentsError } = await supabase
-        .from("product_components")
-        .select("inventory_item_id, quantity")
-        .eq("product_id", productId);
-
-      if (componentsError) throw componentsError;
-
-      // Check and update inventory for each component
-      if (components && components.length > 0) {
-        for (const component of components) {
-          const usedQuantity = component.quantity * orderQuantity;
-
-          const { data: currentItem, error: fetchError } = await supabase
-            .from("inventory_items")
-            .select("quantity")
-            .eq("id", component.inventory_item_id)
-            .single();
-
-          if (fetchError) throw fetchError;
-
-          // Check if enough inventory is available
-          if (usedQuantity > currentItem.quantity) {
-            throw new Error(`Not enough inventory available for this order`);
-          }
-
-          const newQuantity = currentItem.quantity - usedQuantity;
-
-          const { error: updateError } = await supabase
-            .from("inventory_items")
-            .update({ quantity: newQuantity })
-            .eq("id", component.inventory_item_id);
-
-          if (updateError) throw updateError;
-        }
-      }
-
-      // Update product quantity
-      const newProductQuantity = selectedProduct.quantity_available - orderQuantity;
-      const { error: productUpdateError } = await supabase
-        .from("products")
-        .update({ quantity_available: newProductQuantity })
-        .eq("id", productId);
-
-      if (productUpdateError) throw productUpdateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast.success("Order created and inventory updated");
+      toast.success("Order created successfully");
       onOpenChange(false);
       resetForm();
     },

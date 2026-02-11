@@ -67,108 +67,6 @@ export const OrderEditDialog = ({ order, open, onOpenChange }: OrderEditDialogPr
         throw new Error(errorMessage);
       }
 
-      // If quantity increased, check availability and update inventory
-      if (quantityDiff > 0 && order.product_id) {
-        // Check product availability
-        const { data: product, error: productError } = await supabase
-          .from("products")
-          .select("quantity_available")
-          .eq("id", order.product_id)
-          .single();
-
-        if (productError) throw productError;
-
-        if (quantityDiff > product.quantity_available) {
-          throw new Error(`Not enough stock available. Available: ${product.quantity_available}`);
-        }
-
-        // Get product components and update inventory
-        const { data: components, error: componentsError } = await supabase
-          .from("product_components")
-          .select("inventory_item_id, quantity")
-          .eq("product_id", order.product_id);
-
-        if (componentsError) throw componentsError;
-
-        // Update inventory for each component
-        for (const component of components || []) {
-          const inventoryChange = component.quantity * quantityDiff;
-
-          const { data: currentItem, error: fetchError } = await supabase
-            .from("inventory_items")
-            .select("quantity")
-            .eq("id", component.inventory_item_id)
-            .single();
-
-          if (fetchError) throw fetchError;
-
-          if (inventoryChange > currentItem.quantity) {
-            throw new Error("Not enough inventory available for this quantity increase");
-          }
-
-          const { error: updateError } = await supabase
-            .from("inventory_items")
-            .update({ quantity: currentItem.quantity - inventoryChange })
-            .eq("id", component.inventory_item_id);
-
-          if (updateError) throw updateError;
-        }
-
-        // Update product quantity
-        const { error: productUpdateError } = await supabase
-          .from("products")
-          .update({ quantity_available: product.quantity_available - quantityDiff })
-          .eq("id", order.product_id);
-
-        if (productUpdateError) throw productUpdateError;
-      }
-
-      // If quantity decreased, restore inventory
-      if (quantityDiff < 0 && order.product_id) {
-        const { data: components, error: componentsError } = await supabase
-          .from("product_components")
-          .select("inventory_item_id, quantity")
-          .eq("product_id", order.product_id);
-
-        if (componentsError) throw componentsError;
-
-        // Restore inventory for each component
-        for (const component of components || []) {
-          const inventoryRestore = component.quantity * Math.abs(quantityDiff);
-
-          const { data: currentItem, error: fetchError } = await supabase
-            .from("inventory_items")
-            .select("quantity")
-            .eq("id", component.inventory_item_id)
-            .single();
-
-          if (fetchError) throw fetchError;
-
-          const { error: updateError } = await supabase
-            .from("inventory_items")
-            .update({ quantity: currentItem.quantity + inventoryRestore })
-            .eq("id", component.inventory_item_id);
-
-          if (updateError) throw updateError;
-        }
-
-        // Restore product quantity
-        const { data: product, error: productError } = await supabase
-          .from("products")
-          .select("quantity_available")
-          .eq("id", order.product_id)
-          .single();
-
-        if (productError) throw productError;
-
-        const { error: productUpdateError } = await supabase
-          .from("products")
-          .update({ quantity_available: product.quantity_available + Math.abs(quantityDiff) })
-          .eq("id", order.product_id);
-
-        if (productUpdateError) throw productUpdateError;
-      }
-
       // Calculate new sale price based on quantity change
       const pricePerUnit = order.sale_price / order.quantity;
       const newSalePrice = pricePerUnit * newQuantity;
@@ -190,8 +88,6 @@ export const OrderEditDialog = ({ order, open, onOpenChange }: OrderEditDialogPr
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Order updated successfully");
       onOpenChange(false);
     },
@@ -259,9 +155,7 @@ export const OrderEditDialog = ({ order, open, onOpenChange }: OrderEditDialogPr
             />
             {parseInt(quantity) !== order.quantity && canEdit && (
               <p className="text-xs text-muted-foreground">
-                {parseInt(quantity) > order.quantity
-                  ? `Adding ${parseInt(quantity) - order.quantity} units will deduct from inventory`
-                  : `Removing ${order.quantity - parseInt(quantity)} units will restore to inventory`}
+            Quantity changed from {order.quantity} to {parseInt(quantity)}
               </p>
             )}
           </div>
