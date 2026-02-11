@@ -16,7 +16,7 @@ export const Navigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="text-xl font-bold text-foreground">
-            GiftBox Manager
+            KhipuFlow
           </Link>
           <div className="flex gap-1">
             {links.map(({ to, label, icon: Icon }) => (
