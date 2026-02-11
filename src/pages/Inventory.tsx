@@ -2,6 +2,16 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus } from "lucide-react";
 import { InventoryList } from "@/components/inventory/InventoryList";
 import { InventoryDialog } from "@/components/inventory/InventoryDialog";
@@ -146,10 +156,10 @@ const Inventory = () => {
     setIsDialogOpen(true);
   };
 
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this item?")) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteItemId(id);
   };
 
   const handleAdjustStock = (item: InventoryItem, available: number) => {
@@ -205,6 +215,26 @@ const Inventory = () => {
         item={adjustingItem}
         availableQuantity={adjustingAvailable}
       />
+
+      <AlertDialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Inventory Item</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this item? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteItemId && deleteMutation.mutate(deleteItemId)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

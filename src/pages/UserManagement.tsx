@@ -22,6 +22,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Trash2, Shield, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { InviteUserDialog } from "@/components/users/InviteUserDialog";
@@ -41,6 +48,7 @@ interface TeamMember {
 const UserManagement = () => {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deleteMemberUserId, setDeleteMemberUserId] = useState<string | null>(null);
   const { business, isOwner, profile } = useBusiness();
   const queryClient = useQueryClient();
 
@@ -49,7 +57,6 @@ const UserManagement = () => {
     queryFn: async () => {
       if (!business?.id) return [];
 
-      // First get all roles for this business
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("id, user_id, role, created_at")
@@ -59,7 +66,6 @@ const UserManagement = () => {
       if (rolesError) throw rolesError;
       if (!roles || roles.length === 0) return [];
 
-      // Then get profiles for those users
       const userIds = roles.map(r => r.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
@@ -68,7 +74,6 @@ const UserManagement = () => {
 
       if (profilesError) throw profilesError;
 
-      // Merge the data
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       return roles.map((role) => {
         const profile = profileMap.get(role.user_id);
@@ -87,53 +92,52 @@ const UserManagement = () => {
   });
 
   const removeUserMutation = useMutation({
-    mutationFn: async (roleId: string) => {
-      // First get the user_id from the role record
-      const { data: roleData, error: fetchError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("id", roleId)
-        .single();
-
-      if (fetchError || !roleData) throw new Error("Role not found");
-
-      // Delete the role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("id", roleId)
-        .eq("business_id", business?.id);
-
-      if (roleError) throw roleError;
-
-      // Clear business_id from profile so they can be re-invited cleanly
-      const { error: clearError } = await supabase.rpc('clear_user_business', {
-        _user_id: roleData.user_id,
+    mutationFn: async ({ roleId, userId }: { roleId: string; userId: string }) => {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: userId },
       });
 
-      if (clearError) throw clearError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
-      toast.success("User removed from team");
+      toast.success("User removed and account deleted");
       setDeleteUserId(null);
+      setDeleteMemberUserId(null);
     },
     onError: (error) => {
       console.error("Failed to remove user:", error);
-      toast.error("Failed to remove user");
+      toast.error(error.message || "Failed to remove user");
+    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ roleId, newRole }: { roleId: string; newRole: UserRole }) => {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: newRole })
+        .eq("id", roleId)
+        .eq("business_id", business?.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      toast.success("Role updated successfully");
+    },
+    onError: (error) => {
+      console.error("Failed to update role:", error);
+      toast.error("Failed to update role");
     },
   });
 
   const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
-      case "owner":
-        return "default";
-      case "admin":
-        return "secondary";
-      case "driver":
-        return "outline";
-      default:
-        return "outline";
+      case "owner": return "default";
+      case "admin": return "secondary";
+      case "driver": return "outline";
+      default: return "outline";
     }
   };
 
@@ -206,8 +210,8 @@ const UserManagement = () => {
                   <TableCell>{member.email}</TableCell>
                   <TableCell>
                     {member.phone_number ? (
-                      <a 
-                        href={`tel:${member.phone_number}`} 
+                      <a
+                        href={`tel:${member.phone_number}`}
                         className="text-primary hover:underline"
                       >
                         {member.phone_number}
@@ -217,10 +221,30 @@ const UserManagement = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(member.role)} className="gap-1">
-                      {getRoleIcon(member.role)}
-                      {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                    </Badge>
+                    {member.role === "owner" ? (
+                      <Badge variant={getRoleBadgeVariant(member.role)} className="gap-1">
+                        {getRoleIcon(member.role)}
+                        Owner
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={member.role}
+                        onValueChange={(value) =>
+                          updateRoleMutation.mutate({
+                            roleId: member.id,
+                            newRole: value as UserRole,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-28 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="driver">Driver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell>{new Date(member.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
@@ -228,7 +252,10 @@ const UserManagement = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setDeleteUserId(member.id)}
+                        onClick={() => {
+                          setDeleteUserId(member.id);
+                          setDeleteMemberUserId(member.user_id);
+                        }}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -244,22 +271,25 @@ const UserManagement = () => {
 
       <InviteUserDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
 
-      <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+      <AlertDialog open={!!deleteUserId} onOpenChange={() => { setDeleteUserId(null); setDeleteMemberUserId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this user from your team? They will lose access to
-              all business data and can be re-invited later if needed.
+              Are you sure you want to remove this user from your team? Their account will be
+              permanently deleted and they will need to sign up again if re-invited.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteUserId && removeUserMutation.mutate(deleteUserId)}
+              onClick={() =>
+                deleteUserId && deleteMemberUserId &&
+                removeUserMutation.mutate({ roleId: deleteUserId, userId: deleteMemberUserId })
+              }
               className="bg-destructive hover:bg-destructive/90"
             >
-              Remove
+              Remove & Delete Account
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

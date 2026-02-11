@@ -3,14 +3,14 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { User, LogOut, Settings, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ProfileEditDialog } from '@/components/profile/ProfileEditDialog';
 
 export const Header = () => {
-  const { business, profile, isOwner, isAdmin, updateBusiness } = useBusiness();
+  const { business, profile, isOwner, updateBusiness } = useBusiness();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -39,19 +39,6 @@ export const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {(isOwner || isAdmin) && business && (
-            <Select value={business.currency} onValueChange={handleCurrencyChange}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USD">USD ($)</SelectItem>
-                <SelectItem value="CAD">CAD (C$)</SelectItem>
-                <SelectItem value="PEN">PEN (S/)</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
