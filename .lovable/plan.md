@@ -1,138 +1,209 @@
 
 
-## Full Platform Workflow Review + User Auth Deletion
+## KhipuFlow Superadmin Dashboard
 
-### Critical Bug: Double Inventory Deduction
+### Overview
 
-This is the most important finding. There are **two systems** deducting inventory, causing double-counting:
-
-1. **OrderDialog.tsx (lines 108-151)**: Deducts inventory components AND product quantity immediately when an order is created at "New Inquiry" status
-2. **Database trigger `deduct_inventory_on_order_complete`**: Deducts the same inventory again when the order moves to "Completed"
-
-**Result**: Every completed order deducts inventory twice.
-
-Additionally, the `restore_inventory_on_order_cancel` trigger only restores inventory when cancelling FROM "Completed". If an order is cancelled from any other status (e.g., "In Progress"), the inventory deducted at creation is never restored.
-
-**Fix**: Remove the frontend inventory deduction from `OrderDialog.tsx` and `OrderEditDialog.tsx`. Let the database triggers handle all inventory changes. The frontend should only create/update the order record.
+A separate, restricted dashboard accessible only to KhipuFlow team members for monitoring all businesses on the platform. This requires a new role (`superadmin`) that operates outside individual businesses.
 
 ---
 
-### User Auth Deletion (Your Question)
+### Role Architecture Change
 
-Currently when removing a user:
-- Role is deleted from `user_roles`
-- `business_id` is cleared from `profiles` via `clear_user_business` RPC
-- Auth account remains (user can still log in but lands on onboarding)
+Add a new enum value to `app_role`:
 
-**Solution**: Create an edge function `delete-user` that uses the Supabase Admin API to fully delete the auth account. This allows the same email to be re-invited to another business cleanly.
+```text
+Current:  owner | admin | driver
+Proposed: owner | admin | driver | superadmin
+```
 
-**Implementation**:
-- New edge function: `supabase/functions/delete-user/index.ts`
-- Verifies the caller is a business owner
-- Verifies the target user is in the caller's business
-- Deletes the auth user via `supabase.auth.admin.deleteUser()`
-- Cascade delete handles `profiles` and `user_roles` cleanup automatically (profiles FK has ON DELETE CASCADE implied by the trigger setup)
+Superadmin users will NOT have a `business_id` — they operate across all businesses. Their `user_roles` entry will have `business_id = NULL` (requires making that column nullable or using a sentinel value).
 
-Note: The profiles table doesn't have ON DELETE CASCADE on the auth.users FK, so the edge function will need to manually clean up the profile and roles before deleting the auth user.
+**Alternative (cleaner)**: Create a separate `platform_admins` table rather than mixing platform-level roles with business-level roles:
 
----
+```text
+platform_admins
+├── id (uuid, PK)
+├── user_id (uuid, references auth.users)
+├── created_at (timestamptz)
+└── role (text, default 'superadmin')
+```
 
-### Header Currency Selector Bug
-
-The `Header.tsx` currency selector (line 18-29) is hardcoded to only 3 currencies (USD, CAD, PEN) and doesn't use the centralized `currencies` list from `src/lib/currencies.ts`. This contradicts the expanded currency support added to BusinessOnboarding and BusinessSettings.
-
-**Fix**: Either update the Header selector to use the full currencies list, or remove it entirely since the same functionality exists in Business Settings. Removing it simplifies the UI.
+This keeps the existing business role system untouched and avoids RLS complexity.
 
 ---
 
-### Team Tab Visibility Mismatch
+### New Routes and Pages
 
-`TabNavigation.tsx` (line 20) shows the Team tab for both owners AND admins. However, `UserManagement.tsx` blocks non-owners with an "Access Denied" screen. Admins see the tab but can't use it.
-
-**Fix**: Either restrict the tab to owners only, or allow admins to view (but not manage) the team roster.
-
----
-
-### Missing Features for Beta Testing
-
-| Priority | Feature | Description | Complexity |
-|----------|---------|-------------|------------|
-| Critical | Fix double inventory deduction | Remove frontend deduction, rely on DB triggers | Medium |
-| Critical | User auth deletion | Edge function to fully remove users | Medium |
-| High | Fix Header currency selector | Use centralized currencies or remove from header | Low |
-| High | Fix Team tab for admins | Match visibility with actual permissions | Low |
-| Medium | Role editing | Allow owners to change admin/driver roles | Low |
-| Medium | Proper delete confirmations | Replace browser `confirm()` with AlertDialog for products/inventory | Low |
-| Low | Dark mode toggle | Add theme switcher to header | Low |
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/superadmin` | SuperadminDashboard | Overview: total businesses, total users, recent signups |
+| `/superadmin/businesses` | BusinessList | All businesses with filters, status, subscription tier |
+| `/superadmin/businesses/:id` | BusinessDetail | View business details, their users, override subscription |
+| `/superadmin/users` | UserList | All platform users, search, edit name/email |
 
 ---
 
-### Implementation Plan
+### Dashboard Metrics
 
-#### 1. Fix Double Inventory Deduction (Critical)
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│  KhipuFlow Admin Dashboard                                       │
+├──────────────┬──────────────┬──────────────┬─────────────────────┤
+│ Total        │ Active       │ Free Trial   │ New This Week       │
+│ Businesses   │ Businesses   │ Businesses   │                     │
+│    42        │    28        │    14        │    5                │
+├──────────────┴──────────────┴──────────────┴─────────────────────┤
+│                                                                  │
+│  Recent Business Signups                                         │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ Business Name  │ Owner      │ Signed Up   │ Status         │ │
+│  │ Sweet Boxes    │ Ana L.     │ Feb 10      │ Free Trial     │ │
+│  │ GiftCraft PE   │ Carlos M.  │ Feb 9       │ Active (Growth)│ │
+│  │ Box Delight    │ Maria R.   │ Feb 8       │ Free Trial     │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  Total Users: 127  │  Avg Users/Business: 3.0                   │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-**Files to modify:**
-- `src/components/orders/OrderDialog.tsx` -- Remove lines 108-151 (inventory deduction on creation) and lines 144-151 (product quantity update on creation)
-- `src/components/orders/OrderEditDialog.tsx` -- Remove all inventory adjustment logic (lines 71-170). Order edits should only update order fields, not inventory.
+---
 
-The database triggers `deduct_inventory_on_order_complete` and `restore_inventory_on_order_cancel` will be the single source of truth for inventory changes.
+### Database Changes
 
-**Important consideration**: The current trigger only deducts on "Completed". This means inventory shown as "available" won't reflect pending orders. This is actually the simpler and more correct approach -- inventory represents what's physically in stock, and only gets deducted when an order is actually fulfilled.
+#### 1. Platform Admins Table
 
-#### 2. Create User Deletion Edge Function
+```sql
+CREATE TABLE public.platform_admins (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  created_at timestamptz DEFAULT now()
+);
 
-**New file:** `supabase/functions/delete-user/index.ts`
+ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
+
+-- Only platform admins can read this table
+CREATE POLICY "Platform admins can read"
+  ON public.platform_admins FOR SELECT
+  USING (user_id = auth.uid());
+```
+
+#### 2. Security Definer Function
+
+```sql
+CREATE OR REPLACE FUNCTION public.is_platform_admin(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.platform_admins
+    WHERE user_id = _user_id
+  )
+$$;
+```
+
+#### 3. Subscription Tracking (on businesses table)
+
+```sql
+ALTER TABLE public.businesses ADD COLUMN subscription_tier text DEFAULT 'free_trial';
+ALTER TABLE public.businesses ADD COLUMN subscription_status text DEFAULT 'active';
+ALTER TABLE public.businesses ADD COLUMN trial_ends_at timestamptz DEFAULT (now() + interval '14 days');
+```
+
+#### 4. RLS for Superadmin Access
+
+New policies on `businesses`, `profiles`, `user_roles`, `orders`, etc. allowing platform admins to read all data:
+
+```sql
+-- Example for businesses
+CREATE POLICY "Platform admins can view all businesses"
+  ON public.businesses FOR SELECT
+  USING (is_platform_admin(auth.uid()));
+
+-- Example for profiles (superadmin can also UPDATE name/email)
+CREATE POLICY "Platform admins can view all profiles"
+  ON public.profiles FOR SELECT
+  USING (is_platform_admin(auth.uid()));
+
+CREATE POLICY "Platform admins can update profiles"
+  ON public.profiles FOR UPDATE
+  USING (is_platform_admin(auth.uid()));
+```
+
+---
+
+### Superadmin Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| View all businesses | Name, currency, created date, subscription status |
+| View business users | See all users within any business |
+| Edit user profiles | Modify name and email for any user |
+| Override subscription | Change tier (Free/Growth/Business), extend trials |
+| View platform stats | Total businesses, users, signups over time |
+| Monitor onboarding | See which businesses completed onboarding steps |
+
+---
+
+### Access Control
+
+- Superadmin routes are protected by a `SuperadminRoute` component that checks `is_platform_admin(auth.uid())`
+- Superadmin users log in through the same `/auth` page but get redirected to `/superadmin` instead of `/`
+- The regular app navigation is hidden for superadmin users; they see their own sidebar/nav
+- Initial superadmin users are seeded directly in the database (no self-registration)
+
+---
+
+### Edge Function for Profile Editing
+
+An edge function `admin-update-profile` will handle updating user names and emails:
 
 ```text
 Flow:
-1. Receive request with target user_id
-2. Verify caller is authenticated
-3. Verify caller has 'owner' role
-4. Verify target user is in caller's business
-5. Verify target user is NOT an owner
-6. Delete user_roles records
-7. Delete profile record
-8. Delete auth user via admin API
-9. Return success
+1. Verify caller is platform admin
+2. Update profiles table (name, email)
+3. If email changed, update auth.users email via admin API
+4. Return success
 ```
-
-**Modify:** `src/pages/UserManagement.tsx` -- Update `removeUserMutation` to call the edge function instead of direct Supabase queries.
-
-#### 3. Fix Header Currency Selector
-
-**File:** `src/components/layout/Header.tsx`
-- Remove the currency selector entirely (lines 42-53) since Business Settings already handles this
-- This avoids confusion and the hardcoded currency list issue
-
-#### 4. Fix Team Tab Visibility
-
-**File:** `src/components/layout/TabNavigation.tsx`
-- Change line 20 to only show Team tab for owners: `...(isOwner ? [{ to: '/team', ... }] : [])`
-
-#### 5. Add Role Editing
-
-**File:** `src/pages/UserManagement.tsx`
-- Add a role selector dropdown in each team member row (for non-owner members)
-- Create a mutation that updates the `user_roles` table
-
-#### 6. Replace Browser confirm() with AlertDialog
-
-**Files:**
-- `src/pages/Products.tsx` -- Replace `confirm()` on line 74 with AlertDialog
-- `src/pages/Inventory.tsx` -- Replace `confirm()` on line 150 with AlertDialog
 
 ---
 
-### Summary of All Changes
+### Files to Create
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/components/orders/OrderDialog.tsx` | Modify | Remove frontend inventory deduction |
-| `src/components/orders/OrderEditDialog.tsx` | Modify | Remove frontend inventory adjustment |
-| `supabase/functions/delete-user/index.ts` | Create | Edge function for full user deletion |
-| `src/pages/UserManagement.tsx` | Modify | Use edge function for removal + add role editing |
-| `src/components/layout/Header.tsx` | Modify | Remove duplicate currency selector |
-| `src/components/layout/TabNavigation.tsx` | Modify | Fix team tab visibility for admins |
-| `src/pages/Products.tsx` | Modify | Replace confirm() with AlertDialog |
-| `src/pages/Inventory.tsx` | Modify | Replace confirm() with AlertDialog |
+| File | Purpose |
+|------|---------|
+| `src/pages/superadmin/SuperadminDashboard.tsx` | Main dashboard with metrics |
+| `src/pages/superadmin/BusinessList.tsx` | Table of all businesses |
+| `src/pages/superadmin/BusinessDetail.tsx` | Single business view with users |
+| `src/pages/superadmin/UserList.tsx` | All platform users |
+| `src/components/superadmin/SuperadminRoute.tsx` | Auth guard for superadmin routes |
+| `src/components/superadmin/SuperadminLayout.tsx` | Layout with superadmin nav |
+| `supabase/functions/admin-update-profile/index.ts` | Edge function for profile edits |
+| `supabase/migrations/xxx.sql` | Platform admins table, subscription columns, RLS policies |
 
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add superadmin routes |
+| `src/components/ProtectedRoute.tsx` | Add superadmin redirect logic |
+
+---
+
+### Implementation Phases
+
+**Phase 1 (Foundation)**: Create `platform_admins` table, `is_platform_admin` function, subscription columns on businesses, and the `SuperadminRoute` guard. Build the main dashboard page with basic metrics.
+
+**Phase 2 (Business Management)**: Business list with search/filter, business detail page, subscription override controls.
+
+**Phase 3 (User Management)**: User list across all businesses, profile editing edge function, email change capability.
+
+---
+
+### Notes
+
+- Superadmin users should be manually inserted into `platform_admins` via SQL -- no UI for creating superadmins
+- The superadmin dashboard is completely separate from the business dashboard; no shared navigation
+- All superadmin operations are gated by the `is_platform_admin` function at the RLS level
+- This can be built incrementally -- start with Phase 1 for monitoring, add management features later
