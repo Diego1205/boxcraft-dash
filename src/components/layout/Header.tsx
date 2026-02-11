@@ -33,7 +33,7 @@ export const Header = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground">{business?.name || 'GiftBox Manager'}</h1>
+            <h1 className="text-xl font-bold text-foreground">{business?.name || 'KhipuFlow'}</h1>
             <p className="text-xs text-muted-foreground">Manage inventory, products, and orders</p>
           </div>
         </div>

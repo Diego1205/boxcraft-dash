@@ -31,11 +31,11 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-4 text-foreground">
-            Welcome to GiftBox Manager
+            Welcome to KhipuFlow
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            A complete business management solution for your gift box company. 
-            Track inventory, create products, and manage orders all in one place.
+            The all-in-one operations platform for gift box businesses. 
+            Manage inventory, build products, track orders, and coordinate deliveries — from a single dashboard.
           </p>
         </div>
 
