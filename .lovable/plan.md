@@ -1,141 +1,138 @@
-## Rebrand to KhipuFlow + Landing Page Content Package
-
-### Part 1: Rebranding (Code Changes)
-
-All references to "GiftBox Manager" will be updated across the codebase:
 
 
-| File                                                    | Change                              |
-| ------------------------------------------------------- | ----------------------------------- |
-| `index.html`                                            | Update `<title>` tag                |
-| `src/pages/Index.tsx`                                   | Update hero title and description   |
-| `src/components/layout/Header.tsx`                      | Update fallback business name       |
-| `src/pages/BusinessOnboarding.tsx`                      | Update welcome text and placeholder |
-| `src/components/onboarding/GettingStartedChecklist.tsx` | Update any branding references      |
+## Full Platform Workflow Review + User Auth Deletion
 
+### Critical Bug: Double Inventory Deduction
 
----
+This is the most important finding. There are **two systems** deducting inventory, causing double-counting:
 
-### Part 2: Landing Page Content Guide
+1. **OrderDialog.tsx (lines 108-151)**: Deducts inventory components AND product quantity immediately when an order is created at "New Inquiry" status
+2. **Database trigger `deduct_inventory_on_order_complete`**: Deducts the same inventory again when the order moves to "Completed"
 
-Below is a curated content structure for your landing page -- concise enough to avoid saturation, comprehensive enough to convey value.
+**Result**: Every completed order deducts inventory twice.
+
+Additionally, the `restore_inventory_on_order_cancel` trigger only restores inventory when cancelling FROM "Completed". If an order is cancelled from any other status (e.g., "In Progress"), the inventory deducted at creation is never restored.
+
+**Fix**: Remove the frontend inventory deduction from `OrderDialog.tsx` and `OrderEditDialog.tsx`. Let the database triggers handle all inventory changes. The frontend should only create/update the order record.
 
 ---
 
-#### Tagline Options
+### User Auth Deletion (Your Question)
 
-- "Streamline Your Gift Box Business, End to End."
-- "From Inventory to Delivery -- All in One Flow."
+Currently when removing a user:
+- Role is deleted from `user_roles`
+- `business_id` is cleared from `profiles` via `clear_user_business` RPC
+- Auth account remains (user can still log in but lands on onboarding)
 
-#### One-Liner Description
+**Solution**: Create an edge function `delete-user` that uses the Supabase Admin API to fully delete the auth account. This allows the same email to be re-invited to another business cleanly.
 
-> KhipuFlow is the all-in-one operations platform for gift box businesses. Manage inventory, build products, track orders, coordinate deliveries, and monitor revenue -- from a single dashboard.
+**Implementation**:
+- New edge function: `supabase/functions/delete-user/index.ts`
+- Verifies the caller is a business owner
+- Verifies the target user is in the caller's business
+- Deletes the auth user via `supabase.auth.admin.deleteUser()`
+- Cascade delete handles `profiles` and `user_roles` cleanup automatically (profiles FK has ON DELETE CASCADE implied by the trigger setup)
 
----
-
-#### Core Features (Currently Live)
-
-These are the "hero" features for the landing page -- recommend showing 4-6 max with icons.
-
-
-| Feature              | Short Description                                                                                  |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| Real-Time Dashboard  | See total inventory value, active orders, monthly revenue, and low-stock alerts at a glance        |
-| Inventory Management | Track items with costs, quantities, images, categories, reorder alerts, and budget monitoring      |
-| Product Builder      | Assemble gift boxes from inventory items with automatic cost calculation and profit margin pricing |
-| Order Kanban Board   | Drag-and-drop order tracking through 6 stages: New Inquiry to Completed                            |
-| Delivery Workflow    | Assign drivers, generate confirmation links, capture delivery photos with GPS timestamps           |
-| Team Management      | Invite admins and drivers with role-based access control                                           |
-
+Note: The profiles table doesn't have ON DELETE CASCADE on the auth.users FK, so the edge function will need to manually clean up the profile and roles before deleting the auth user.
 
 ---
 
-#### Secondary Features (Mention briefly, perhaps in a "Why KhipuFlow?" section)
+### Header Currency Selector Bug
 
+The `Header.tsx` currency selector (line 18-29) is hardcoded to only 3 currencies (USD, CAD, PEN) and doesn't use the centralized `currencies` list from `src/lib/currencies.ts`. This contradicts the expanded currency support added to BusinessOnboarding and BusinessSettings.
 
-| Feature                | One-Liner                                                           |
-| ---------------------- | ------------------------------------------------------------------- |
-| Multi-Currency Support | Operate in USD, EUR, GBP, PEN, MXN, BRL, COP, or CAD                |
-| Budget Tracking        | Set and monitor monthly purchasing budgets                          |
-| Low Stock Alerts       | Automatic warnings when inventory drops below reorder levels        |
-| Driver Dashboard       | Dedicated mobile-friendly view for delivery drivers                 |
-| Photo Delivery Proof   | Drivers upload proof-of-delivery photos directly from their phone   |
-| Guided Onboarding      | Step-by-step checklist to get new businesses operational in minutes |
-
+**Fix**: Either update the Header selector to use the full currencies list, or remove it entirely since the same functionality exists in Business Settings. Removing it simplifies the UI.
 
 ---
 
-#### "Coming Soon" Features (Future Roadmap -- for a teaser section)
+### Team Tab Visibility Mismatch
 
+`TabNavigation.tsx` (line 20) shows the Team tab for both owners AND admins. However, `UserManagement.tsx` blocks non-owners with an "Access Denied" screen. Admins see the tab but can't use it.
 
-| Feature                       | Description                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| Analytics and Reports         | Revenue trends, best-selling products, and seasonal insights with visual charts |
-| CSV Data Export               | Export inventory, orders, and financial data for accounting                     |
-| Customer Database             | Save repeat client info for faster order creation                               |
-| Order History and Audit Trail | Full timeline of status changes with timestamps                                 |
-| Custom Email Notifications    | Automated alerts for order updates and delivery confirmations                   |
-| Dark Mode                     | Light and dark theme toggle                                                     |
-
+**Fix**: Either restrict the tab to owners only, or allow admins to view (but not manage) the team roster.
 
 ---
 
-#### Suggested Pricing Tiers
+### Missing Features for Beta Testing
 
-
-| Tier | Name     | Target                                  | Suggested Inclusions                                                                                |
-| ---- | -------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Free | Starter  | Solo entrepreneurs testing the platform | 1 user, up to 50 inventory items, up to 20 orders/month, basic dashboard                            |
-| Paid | Growth   | Small teams actively fulfilling orders  | Up to 5 users, unlimited inventory and orders, delivery workflow, budget tracking, priority support |
-| Paid | Business | Established operations with drivers     | Unlimited users, all features, analytics (when available), CSV export, dedicated onboarding support |
-
-
-Note: Pricing amounts are not included since those are a business decision. The tiers are structured around natural usage limits that align with team size and operational scale.
+| Priority | Feature | Description | Complexity |
+|----------|---------|-------------|------------|
+| Critical | Fix double inventory deduction | Remove frontend deduction, rely on DB triggers | Medium |
+| Critical | User auth deletion | Edge function to fully remove users | Medium |
+| High | Fix Header currency selector | Use centralized currencies or remove from header | Low |
+| High | Fix Team tab for admins | Match visibility with actual permissions | Low |
+| Medium | Role editing | Allow owners to change admin/driver roles | Low |
+| Medium | Proper delete confirmations | Replace browser `confirm()` with AlertDialog for products/inventory | Low |
+| Low | Dark mode toggle | Add theme switcher to header | Low |
 
 ---
 
-#### Landing Page Section Structure (Recommended Flow)
+### Implementation Plan
+
+#### 1. Fix Double Inventory Deduction (Critical)
+
+**Files to modify:**
+- `src/components/orders/OrderDialog.tsx` -- Remove lines 108-151 (inventory deduction on creation) and lines 144-151 (product quantity update on creation)
+- `src/components/orders/OrderEditDialog.tsx` -- Remove all inventory adjustment logic (lines 71-170). Order edits should only update order fields, not inventory.
+
+The database triggers `deduct_inventory_on_order_complete` and `restore_inventory_on_order_cancel` will be the single source of truth for inventory changes.
+
+**Important consideration**: The current trigger only deducts on "Completed". This means inventory shown as "available" won't reflect pending orders. This is actually the simpler and more correct approach -- inventory represents what's physically in stock, and only gets deducted when an order is actually fulfilled.
+
+#### 2. Create User Deletion Edge Function
+
+**New file:** `supabase/functions/delete-user/index.ts`
 
 ```text
-1. Hero
-   - Tagline + one-liner + CTA ("Get Started Free")
-   - App screenshot or mockup
-
-2. Core Features (4-6 cards with icons)
-   - Dashboard, Inventory, Products, Orders, Delivery, Team
-
-3. How It Works (3 steps)
-   - Step 1: Set up your business (name + currency)
-   - Step 2: Add inventory and build products
-   - Step 3: Track orders and deliver
-
-4. Why KhipuFlow? (Secondary features as bullet list)
-   - Multi-currency, budget tracking, low-stock alerts, etc.
-
-5. Coming Soon (Roadmap teaser)
-   - 3-4 upcoming features with "notify me" option
-
-6. Pricing (When ready)
-   - Starter / Growth / Business tiers
-
-7. CTA Footer
-   - "Start managing your gift box business today"
-   - Sign up button
+Flow:
+1. Receive request with target user_id
+2. Verify caller is authenticated
+3. Verify caller has 'owner' role
+4. Verify target user is in caller's business
+5. Verify target user is NOT an owner
+6. Delete user_roles records
+7. Delete profile record
+8. Delete auth user via admin API
+9. Return success
 ```
+
+**Modify:** `src/pages/UserManagement.tsx` -- Update `removeUserMutation` to call the edge function instead of direct Supabase queries.
+
+#### 3. Fix Header Currency Selector
+
+**File:** `src/components/layout/Header.tsx`
+- Remove the currency selector entirely (lines 42-53) since Business Settings already handles this
+- This avoids confusion and the hardcoded currency list issue
+
+#### 4. Fix Team Tab Visibility
+
+**File:** `src/components/layout/TabNavigation.tsx`
+- Change line 20 to only show Team tab for owners: `...(isOwner ? [{ to: '/team', ... }] : [])`
+
+#### 5. Add Role Editing
+
+**File:** `src/pages/UserManagement.tsx`
+- Add a role selector dropdown in each team member row (for non-owner members)
+- Create a mutation that updates the `user_roles` table
+
+#### 6. Replace Browser confirm() with AlertDialog
+
+**Files:**
+- `src/pages/Products.tsx` -- Replace `confirm()` on line 74 with AlertDialog
+- `src/pages/Inventory.tsx` -- Replace `confirm()` on line 150 with AlertDialog
 
 ---
 
-### Implementation Scope
+### Summary of All Changes
 
-The code changes for this task are limited to rebranding only (replacing "GiftBox Manager" with "KhipuFlow"). The landing page content above is a reference document for when you build the actual landing page -- no landing page code will be created in this task.
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/components/orders/OrderDialog.tsx` | Modify | Remove frontend inventory deduction |
+| `src/components/orders/OrderEditDialog.tsx` | Modify | Remove frontend inventory adjustment |
+| `supabase/functions/delete-user/index.ts` | Create | Edge function for full user deletion |
+| `src/pages/UserManagement.tsx` | Modify | Use edge function for removal + add role editing |
+| `src/components/layout/Header.tsx` | Modify | Remove duplicate currency selector |
+| `src/components/layout/TabNavigation.tsx` | Modify | Fix team tab visibility for admins |
+| `src/pages/Products.tsx` | Modify | Replace confirm() with AlertDialog |
+| `src/pages/Inventory.tsx` | Modify | Replace confirm() with AlertDialog |
 
-### Files to Modify
-
-
-| File                               | Change                                                  |
-| ---------------------------------- | ------------------------------------------------------- |
-| `index.html`                       | Title to "KhipuFlow"                                    |
-| `src/pages/Index.tsx`              | Hero text: "Welcome to KhipuFlow" + updated description |
-| `src/components/layout/Header.tsx` | Fallback name: "KhipuFlow"                              |
-| `src/pages/BusinessOnboarding.tsx` | "Welcome to KhipuFlow!"                                 |
-| `public/robots.txt`                | Update if it contains old branding                      |
