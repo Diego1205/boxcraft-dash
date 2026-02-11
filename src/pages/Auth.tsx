@@ -138,7 +138,7 @@ const Auth = () => {
               <Package className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">GiftBox Manager</CardTitle>
+          <CardTitle className="text-2xl">KhipuFlow</CardTitle>
           <CardDescription>Manage inventory, products, and orders</CardDescription>
         </CardHeader>
         <CardContent>
