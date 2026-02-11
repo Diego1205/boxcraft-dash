@@ -15,9 +15,15 @@ import UserManagement from "./pages/UserManagement";
 import DriverDashboard from "./pages/DriverDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import SuperadminDashboard from "./pages/superadmin/SuperadminDashboard";
+import BusinessList from "./pages/superadmin/BusinessList";
+import BusinessDetail from "./pages/superadmin/BusinessDetail";
+import UserList from "./pages/superadmin/UserList";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BusinessProvider } from "./contexts/BusinessContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SuperadminRoute } from "./components/superadmin/SuperadminRoute";
+import { SuperadminLayout } from "./components/superadmin/SuperadminLayout";
 import { Header } from "./components/layout/Header";
 import { TabNavigation } from "./components/layout/TabNavigation";
 import { useAuth } from "./contexts/AuthContext";
@@ -67,6 +73,28 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/delivery/:token" element={<DeliveryConfirmation />} />
               
+              {/* Superadmin routes */}
+              <Route path="/superadmin" element={
+                <SuperadminRoute>
+                  <SuperadminLayout><SuperadminDashboard /></SuperadminLayout>
+                </SuperadminRoute>
+              } />
+              <Route path="/superadmin/businesses" element={
+                <SuperadminRoute>
+                  <SuperadminLayout><BusinessList /></SuperadminLayout>
+                </SuperadminRoute>
+              } />
+              <Route path="/superadmin/businesses/:id" element={
+                <SuperadminRoute>
+                  <SuperadminLayout><BusinessDetail /></SuperadminLayout>
+                </SuperadminRoute>
+              } />
+              <Route path="/superadmin/users" element={
+                <SuperadminRoute>
+                  <SuperadminLayout><UserList /></SuperadminLayout>
+                </SuperadminRoute>
+              } />
+
               {/* Driver-specific route */}
               <Route path="/driver" element={
                 <ProtectedRoute allowDrivers>

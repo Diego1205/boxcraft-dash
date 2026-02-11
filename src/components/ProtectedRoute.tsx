@@ -1,6 +1,8 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,7 +14,21 @@ export const ProtectedRoute = ({ children, allowDrivers = false }: ProtectedRout
   const { profile, loading: businessLoading, isDriver, isOwner, isAdmin } = useBusiness();
   const location = useLocation();
 
-  if (authLoading || businessLoading) {
+  const { data: isPlatformAdmin, isLoading: adminLoading } = useQuery({
+    queryKey: ['platform-admin-check', user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data } = await supabase
+        .from('platform_admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return !!data;
+    },
+    enabled: !!user,
+  });
+
+  if (authLoading || businessLoading || adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -25,6 +41,11 @@ export const ProtectedRoute = ({ children, allowDrivers = false }: ProtectedRout
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Redirect platform admins to superadmin dashboard
+  if (isPlatformAdmin) {
+    return <Navigate to="/superadmin" replace />;
   }
 
   if (!profile?.business_id) {
