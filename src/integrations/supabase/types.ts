@@ -56,6 +56,9 @@ export type Database = {
           currency_symbol: string
           id: string
           name: string
+          subscription_status: string
+          subscription_tier: string
+          trial_ends_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -64,6 +67,9 @@ export type Database = {
           currency_symbol?: string
           id?: string
           name: string
+          subscription_status?: string
+          subscription_tier?: string
+          trial_ends_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -72,6 +78,9 @@ export type Database = {
           currency_symbol?: string
           id?: string
           name?: string
+          subscription_status?: string
+          subscription_tier?: string
+          trial_ends_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -236,6 +245,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_admins: {
+        Row: {
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       product_components: {
         Row: {
@@ -415,6 +442,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       onboard_business: {
         Args: {
           _currency: Database["public"]["Enums"]["currency_type"]

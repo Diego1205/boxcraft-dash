@@ -2,3 +2,6 @@ project_id = "zsqffjgmqqgneczrkrpw"
 
 [functions.delete-user]
 verify_jwt = false
+
+[functions.admin-update-profile]
+verify_jwt = false
