@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { currencies, getCurrencySymbol, CurrencyType } from '@/lib/currencies';
+import khipuflowLogo from '@/assets/khipuflow-logo.png';
 
 const BusinessOnboarding = () => {
   const [businessName, setBusinessName] = useState('');
@@ -20,7 +21,6 @@ const BusinessOnboarding = () => {
   const handleCreateBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
     setLoading(true);
     try {
       const { data: businessId, error } = await supabase.rpc('onboard_business', {
@@ -28,11 +28,8 @@ const BusinessOnboarding = () => {
         _currency: currency,
         _currency_symbol: getCurrencySymbol(currency),
       });
-
       if (error) throw error;
-
       toast.success('Business created successfully!');
-      // Force full page reload to ensure BusinessContext loads new data
       window.location.href = '/';
     } catch (error: any) {
       toast.error(error.message);
@@ -42,9 +39,12 @@ const BusinessOnboarding = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/95 to-[hsl(211,50%,36%)] p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 backdrop-blur-sm bg-card/95">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={khipuflowLogo} alt="KhipuFlow" className="h-12 w-auto" />
+          </div>
           <CardTitle>Welcome to KhipuFlow!</CardTitle>
           <CardDescription>Let's set up your business</CardDescription>
         </CardHeader>
@@ -52,16 +52,8 @@ const BusinessOnboarding = () => {
           <form onSubmit={handleCreateBusiness} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="businessName">Business Name</Label>
-              <Input
-                id="businessName"
-                type="text"
-                placeholder="My Business Name"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                required
-              />
+              <Input id="businessName" type="text" placeholder="My Business Name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
               <Select value={currency} onValueChange={(value: CurrencyType) => setCurrency(value)}>
@@ -77,7 +69,6 @@ const BusinessOnboarding = () => {
                 </SelectContent>
               </Select>
             </div>
-
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating...' : 'Create Business'}
             </Button>

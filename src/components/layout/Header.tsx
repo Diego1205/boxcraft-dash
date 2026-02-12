@@ -3,11 +3,11 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-
 import { User, LogOut, Settings, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ProfileEditDialog } from '@/components/profile/ProfileEditDialog';
+import khipuflowLogo from '@/assets/khipuflow-logo.png';
 
 export const Header = () => {
   const { business, profile, isOwner, updateBusiness } = useBusiness();
@@ -29,19 +29,22 @@ export const Header = () => {
   };
 
   return (
-    <header className="border-b bg-card">
+    <header className="bg-primary shadow-md">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{business?.name || 'KhipuFlow'}</h1>
-            <p className="text-xs text-muted-foreground">Manage inventory, products, and orders</p>
-          </div>
+        <div className="flex items-center gap-3">
+          <img src={khipuflowLogo} alt="KhipuFlow" className="h-8 w-auto" />
+          {business?.name && business.name !== 'KhipuFlow' && (
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-primary-foreground/40">|</span>
+              <span className="text-sm font-medium text-primary-foreground/80">{business.name}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-primary-foreground/10 ring-2 ring-accent/50">
                 <User className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
