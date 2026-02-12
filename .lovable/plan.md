@@ -1,209 +1,123 @@
 
 
-## KhipuFlow Superadmin Dashboard
+## KhipuFlow Visual Refresh
 
-### Overview
-
-A separate, restricted dashboard accessible only to KhipuFlow team members for monitoring all businesses on the platform. This requires a new role (`superadmin`) that operates outside individual businesses.
+A styling-only update to give the app a polished, branded look using the KhipuFlow logo colors. No backend changes, no feature changes, no data flow modifications.
 
 ---
 
-### Role Architecture Change
+### Brand Colors (from logo)
 
-Add a new enum value to `app_role`:
+- **Navy Blue**: `#1B3A5C` (dark navy from the "K" and text)
+- **Ocean Blue**: `#2E5C8A` (medium blue from the chevron)
+- **Warm Orange**: `#E8873D` (accent orange from the swoosh)
+- **Light Orange**: `#F5A623` (lighter accent for hover states)
 
-```text
-Current:  owner | admin | driver
-Proposed: owner | admin | driver | superadmin
-```
-
-Superadmin users will NOT have a `business_id` — they operate across all businesses. Their `user_roles` entry will have `business_id = NULL` (requires making that column nullable or using a sentinel value).
-
-**Alternative (cleaner)**: Create a separate `platform_admins` table rather than mixing platform-level roles with business-level roles:
-
-```text
-platform_admins
-├── id (uuid, PK)
-├── user_id (uuid, references auth.users)
-├── created_at (timestamptz)
-└── role (text, default 'superadmin')
-```
-
-This keeps the existing business role system untouched and avoids RLS complexity.
+These will replace the current generic shadcn defaults while keeping the HSL variable system intact.
 
 ---
 
-### New Routes and Pages
+### What Changes
 
-| Route | Page | Purpose |
-|-------|------|---------|
-| `/superadmin` | SuperadminDashboard | Overview: total businesses, total users, recent signups |
-| `/superadmin/businesses` | BusinessList | All businesses with filters, status, subscription tier |
-| `/superadmin/businesses/:id` | BusinessDetail | View business details, their users, override subscription |
-| `/superadmin/users` | UserList | All platform users, search, edit name/email |
+#### 1. Color Theme (`src/index.css`)
 
----
+Update CSS custom properties to use KhipuFlow brand colors:
 
-### Dashboard Metrics
+- **Primary**: Navy blue (from logo text) -- buttons, active tabs, links
+- **Accent**: Warm orange (from logo swoosh) -- highlights, progress bars, CTAs
+- **Background**: Subtle warm white instead of pure white
+- **Cards**: Slightly warmer card backgrounds
+- **Destructive**: Keep red for warnings/errors
+- **Dark mode**: Adjusted navy-based dark palette
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│  KhipuFlow Admin Dashboard                                       │
-├──────────────┬──────────────┬──────────────┬─────────────────────┤
-│ Total        │ Active       │ Free Trial   │ New This Week       │
-│ Businesses   │ Businesses   │ Businesses   │                     │
-│    42        │    28        │    14        │    5                │
-├──────────────┴──────────────┴──────────────┴─────────────────────┤
-│                                                                  │
-│  Recent Business Signups                                         │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ Business Name  │ Owner      │ Signed Up   │ Status         │ │
-│  │ Sweet Boxes    │ Ana L.     │ Feb 10      │ Free Trial     │ │
-│  │ GiftCraft PE   │ Carlos M.  │ Feb 9       │ Active (Growth)│ │
-│  │ Box Delight    │ Maria R.   │ Feb 8       │ Free Trial     │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                  │
-│  Total Users: 127  │  Avg Users/Business: 3.0                   │
-└──────────────────────────────────────────────────────────────────┘
-```
+This single file change cascades through the entire app since all components use CSS variables.
 
----
+#### 2. Logo Integration
 
-### Database Changes
+- Copy the uploaded logo to `src/assets/khipuflow-logo.png`
+- Show the logo in the Header (replacing the text-only "KhipuFlow" or business name area)
+- Show the logo on the Auth page (replacing the generic Package icon)
+- Show the logo on the Business Onboarding page
 
-#### 1. Platform Admins Table
+#### 3. Header Upgrade (`src/components/layout/Header.tsx`)
 
-```sql
-CREATE TABLE public.platform_admins (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
-  created_at timestamptz DEFAULT now()
-);
+- Add a subtle gradient or navy background instead of plain white
+- Display the KhipuFlow logo (small, ~32px height)
+- Better visual separation with a soft shadow instead of just `border-b`
+- Warm the user avatar area with an orange accent ring
 
-ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
+#### 4. Tab Navigation (`src/components/layout/TabNavigation.tsx`)
 
--- Only platform admins can read this table
-CREATE POLICY "Platform admins can read"
-  ON public.platform_admins FOR SELECT
-  USING (user_id = auth.uid());
-```
+- Active tab uses orange underline (brand accent) instead of the default primary
+- Slight background tint on hover
+- Smoother transition animations
 
-#### 2. Security Definer Function
+#### 5. Dashboard Cards (`src/pages/Dashboard.tsx`)
 
-```sql
-CREATE OR REPLACE FUNCTION public.is_platform_admin(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.platform_admins
-    WHERE user_id = _user_id
-  )
-$$;
-```
+- Stat cards get subtle gradient backgrounds using brand colors (e.g., light blue tint for inventory, light orange for revenue)
+- Icon backgrounds get colored circles instead of plain muted icons
+- Cards get a soft hover elevation effect
+- "Getting Started" checklist maintains its current gradient but uses brand orange for progress
 
-#### 3. Subscription Tracking (on businesses table)
+#### 6. Auth Page (`src/pages/Auth.tsx`)
 
-```sql
-ALTER TABLE public.businesses ADD COLUMN subscription_tier text DEFAULT 'free_trial';
-ALTER TABLE public.businesses ADD COLUMN subscription_status text DEFAULT 'active';
-ALTER TABLE public.businesses ADD COLUMN trial_ends_at timestamptz DEFAULT (now() + interval '14 days');
-```
+- Replace the Package icon with the actual KhipuFlow logo
+- Add a branded gradient background (navy to blue)
+- Auth card gets a subtle backdrop blur effect
+- Sign In/Sign Up buttons use brand navy, with orange accent on hover
 
-#### 4. RLS for Superadmin Access
+#### 7. Order Kanban (`src/components/orders/OrderKanban.tsx`)
 
-New policies on `businesses`, `profiles`, `user_roles`, `orders`, etc. allowing platform admins to read all data:
+- Column headers get subtle colored backgrounds matching their status colors
+- Cards get refined shadows and spacing
+- Better visual hierarchy with font weight adjustments
 
-```sql
--- Example for businesses
-CREATE POLICY "Platform admins can view all businesses"
-  ON public.businesses FOR SELECT
-  USING (is_platform_admin(auth.uid()));
+#### 8. General UI Polish (multiple files)
 
--- Example for profiles (superadmin can also UPDATE name/email)
-CREATE POLICY "Platform admins can view all profiles"
-  ON public.profiles FOR SELECT
-  USING (is_platform_admin(auth.uid()));
+- Page headers: Add a subtle welcome greeting on Dashboard
+- Buttons: Primary buttons use navy, secondary use a warm gray
+- Badges: Use brand colors for status badges
+- Empty states: Better styled with brand illustrations/colors
+- Input focus rings: Orange accent instead of default ring color
 
-CREATE POLICY "Platform admins can update profiles"
-  ON public.profiles FOR UPDATE
-  USING (is_platform_admin(auth.uid()));
-```
+#### 9. Business Onboarding (`src/pages/BusinessOnboarding.tsx`)
+
+- Add KhipuFlow logo at top
+- Match the branded gradient background from Auth page
 
 ---
-
-### Superadmin Capabilities
-
-| Capability | Description |
-|------------|-------------|
-| View all businesses | Name, currency, created date, subscription status |
-| View business users | See all users within any business |
-| Edit user profiles | Modify name and email for any user |
-| Override subscription | Change tier (Free/Growth/Business), extend trials |
-| View platform stats | Total businesses, users, signups over time |
-| Monitor onboarding | See which businesses completed onboarding steps |
-
----
-
-### Access Control
-
-- Superadmin routes are protected by a `SuperadminRoute` component that checks `is_platform_admin(auth.uid())`
-- Superadmin users log in through the same `/auth` page but get redirected to `/superadmin` instead of `/`
-- The regular app navigation is hidden for superadmin users; they see their own sidebar/nav
-- Initial superadmin users are seeded directly in the database (no self-registration)
-
----
-
-### Edge Function for Profile Editing
-
-An edge function `admin-update-profile` will handle updating user names and emails:
-
-```text
-Flow:
-1. Verify caller is platform admin
-2. Update profiles table (name, email)
-3. If email changed, update auth.users email via admin API
-4. Return success
-```
-
----
-
-### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/pages/superadmin/SuperadminDashboard.tsx` | Main dashboard with metrics |
-| `src/pages/superadmin/BusinessList.tsx` | Table of all businesses |
-| `src/pages/superadmin/BusinessDetail.tsx` | Single business view with users |
-| `src/pages/superadmin/UserList.tsx` | All platform users |
-| `src/components/superadmin/SuperadminRoute.tsx` | Auth guard for superadmin routes |
-| `src/components/superadmin/SuperadminLayout.tsx` | Layout with superadmin nav |
-| `supabase/functions/admin-update-profile/index.ts` | Edge function for profile edits |
-| `supabase/migrations/xxx.sql` | Platform admins table, subscription columns, RLS policies |
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Add superadmin routes |
-| `src/components/ProtectedRoute.tsx` | Add superadmin redirect logic |
+| `src/index.css` | Update all CSS custom properties with brand colors |
+| `src/components/layout/Header.tsx` | Add logo, gradient header, shadow |
+| `src/components/layout/TabNavigation.tsx` | Orange active indicator, hover states |
+| `src/pages/Dashboard.tsx` | Colored stat card icons, hover effects |
+| `src/pages/Auth.tsx` | Logo, branded gradient background |
+| `src/pages/BusinessOnboarding.tsx` | Logo, branded background |
+| `src/pages/Orders.tsx` | Page header styling |
+| `src/pages/Inventory.tsx` | Page header styling |
+| `src/pages/Products.tsx` | Page header styling |
+| `src/pages/UserManagement.tsx` | Page header styling |
+| `src/components/orders/OrderKanban.tsx` | Column header styling |
+| `src/components/inventory/BudgetCard.tsx` | Styled budget sections |
+| `src/components/onboarding/GettingStartedChecklist.tsx` | Brand color progress |
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/assets/khipuflow-logo.png` | Logo asset copied from upload |
 
 ---
 
-### Implementation Phases
+### Design Principles
 
-**Phase 1 (Foundation)**: Create `platform_admins` table, `is_platform_admin` function, subscription columns on businesses, and the `SuperadminRoute` guard. Build the main dashboard page with basic metrics.
+- **Inspired by**: Sortly (inventory), ShipBob (fulfillment), Katana (manufacturing) -- clean layouts with subtle brand colors, not overwhelming
+- **Color usage**: Navy for structure/primary actions, orange for accents/highlights/CTAs, white/light gray for breathing room
+- **No feature changes**: All data queries, mutations, business logic, and routing remain untouched
+- **Consistent**: Every page gets the same treatment so the app feels cohesive
+- **Mobile-friendly**: All styling updates use existing responsive breakpoints
 
-**Phase 2 (Business Management)**: Business list with search/filter, business detail page, subscription override controls.
-
-**Phase 3 (User Management)**: User list across all businesses, profile editing edge function, email change capability.
-
----
-
-### Notes
-
-- Superadmin users should be manually inserted into `platform_admins` via SQL -- no UI for creating superadmins
-- The superadmin dashboard is completely separate from the business dashboard; no shared navigation
-- All superadmin operations are gated by the `is_platform_admin` function at the RLS level
-- This can be built incrementally -- start with Phase 1 for monitoring, add management features later
