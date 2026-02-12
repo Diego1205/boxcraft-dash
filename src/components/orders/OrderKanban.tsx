@@ -49,9 +49,9 @@ const KanbanColumn = ({ status, orders, statusColor }: KanbanColumnProps) => {
 
   return (
     <div key={status} className="space-y-4">
-      <div className={`bg-card border rounded-lg p-3 ${statusColor}`}>
+      <div className={`bg-card border rounded-lg p-3 shadow-sm ${statusColor}`}>
         <h3 className="font-semibold text-sm text-foreground">{status}</h3>
-        <p className="text-xs text-muted-foreground">{orders.length} orders</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{orders.length} orders</p>
       </div>
       <div
         ref={setNodeRef}

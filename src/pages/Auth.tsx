@@ -15,9 +15,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Package } from 'lucide-react';
 import { EmailConfirmationScreen } from '@/components/auth/EmailConfirmationScreen';
 import { z } from 'zod';
+import khipuflowLogo from '@/assets/khipuflow-logo.png';
 
 const signInSchema = z.object({
   email: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
@@ -47,18 +47,14 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate input data
     const validationResult = signInSchema.safeParse({ email, password });
     if (!validationResult.success) {
       toast.error(validationResult.error.errors[0]?.message || "Invalid input");
       return;
     }
-
     setLoading(true);
     const { error } = await signIn(validationResult.data.email, validationResult.data.password);
     setLoading(false);
-
     if (error) {
       toast.error(error.message);
     } else {
@@ -69,18 +65,14 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate input data
     const validationResult = signUpSchema.safeParse({ email, password, fullName });
     if (!validationResult.success) {
       toast.error(validationResult.error.errors[0]?.message || "Invalid input");
       return;
     }
-
     setLoading(true);
     const { error } = await signUp(validationResult.data.email, validationResult.data.password, validationResult.data.fullName);
     setLoading(false);
-
     if (error) {
       toast.error(error.message);
     } else {
@@ -91,19 +83,16 @@ const Auth = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const validationResult = emailSchema.safeParse({ email: resetEmail });
     if (!validationResult.success) {
       toast.error(validationResult.error.errors[0]?.message || "Invalid email");
       return;
     }
-
     setResetLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(validationResult.data.email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setResetLoading(false);
-
     if (error) {
       toast.error(error.message);
     } else {
@@ -115,7 +104,7 @@ const Auth = () => {
 
   if (showEmailConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/90 to-primary p-4">
         <EmailConfirmationScreen
           email={signupEmail}
           onBack={() => {
@@ -130,15 +119,13 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/95 to-[hsl(211,50%,36%)] p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 backdrop-blur-sm bg-card/95">
+        <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-primary/10">
-              <Package className="h-8 w-8 text-primary" />
-            </div>
+            <img src={khipuflowLogo} alt="KhipuFlow" className="h-12 w-auto" />
           </div>
-          <CardTitle className="text-2xl">KhipuFlow</CardTitle>
+          <CardTitle className="text-2xl">Welcome to KhipuFlow</CardTitle>
           <CardDescription>Manage inventory, products, and orders</CardDescription>
         </CardHeader>
         <CardContent>
@@ -152,34 +139,17 @@ const Auth = () => {
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Input id="signin-email" type="email" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <Input id="signin-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
                 <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-muted-foreground hover:text-primary underline"
-                  >
+                  <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm text-muted-foreground hover:text-accent underline">
                     Forgot your password?
                   </button>
                 </div>
@@ -190,36 +160,15 @@ const Auth = () => {
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
+                  <Input id="signup-name" type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Input id="signup-email" type="email" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
+                  <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creating account...' : 'Sign Up'}
@@ -234,21 +183,12 @@ const Auth = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Enter your email address and we'll send you a link to reset your password.
-            </DialogDescription>
+            <DialogDescription>Enter your email address and we'll send you a link to reset your password.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="reset-email">Email</Label>
-              <Input
-                id="reset-email"
-                type="email"
-                placeholder="name@example.com"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-              />
+              <Input id="reset-email" type="email" placeholder="name@example.com" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full" disabled={resetLoading}>
               {resetLoading ? 'Sending...' : 'Send Reset Link'}
